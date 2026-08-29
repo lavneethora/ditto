@@ -1,6 +1,11 @@
 {
   "extends": "plasmo/templates/tsconfig.base",
   "compilerOptions": {
+    // Plasmo's base config ships `strict: false`. Zod's type inference depends
+    // on strictNullChecks: without it `undefined extends string` is true, so
+    // every schema field infers as optional and the Profile type stops
+    // describing what the parser actually returns.
+    "strict": true,
     "paths": {
       "~*": ["./src/*"]
     },

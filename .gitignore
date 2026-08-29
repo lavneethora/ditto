@@ -1,0 +1,18 @@
+node_modules/
+.plasmo/
+build/
+dist/
+out/
+*.tsbuildinfo
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log
+npm-debug.log*
+
+# Fixtures are saved from real job postings and can contain personal data.
+# Commit only the scrubbed ones, explicitly.
+fixtures/**/*.raw.html

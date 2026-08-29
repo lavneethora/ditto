@@ -1,0 +1,688 @@
+/*
+ * Ditto UI.
+ *
+ * Visual language from the poke.com design system: warm off-white ground,
+ * black text at varying opacity rather than gray hex values, and depth built
+ * from layered inset box-shadows instead of borders.
+ *
+ * Two rules that are load-bearing rather than cosmetic:
+ *
+ * 1. Everything is scoped under .ditto-root and every custom property is
+ *    prefixed --ditto-. This file gets injected into Workday and Greenhouse
+ *    pages, and while the shadow root handles most isolation, an unprefixed
+ *    --surface would still collide through inheritance.
+ *
+ * 2. System fonts only. poke uses self-hosted Exposure and OpenRunde, which
+ *    are not ours to ship, and a content script cannot reliably pull webfonts
+ *    past a host page's CSP. The rounded system stack is the closest honest
+ *    substitute.
+ *
+ * Committed to a single light look on purpose: every target ATS renders light,
+ * and a drawer that flips to dark next to a white Workday form reads as broken
+ * rather than themed.
+ */
+
+.ditto-root {
+  /* Ground */
+  --ditto-bg: #fffdfa;
+  --ditto-surface: #eeebe6;
+  --ditto-card: #ffffff;
+
+  /* Text, as opacity on black. Never gray hex. */
+  --ditto-text: #000000;
+  --ditto-text-secondary: rgba(0, 0, 0, 0.7);
+  --ditto-text-muted: rgba(0, 0, 0, 0.5);
+  --ditto-text-faint: rgba(0, 0, 0, 0.35);
+
+  /* Lines */
+  --ditto-border: #e2e1de;
+  --ditto-border-strong: #c7c7c7;
+  --ditto-border-subtle: #eeeded;
+
+  /* Brand, sampled from the logo. Used for selection and active states.
+     Kept distinct from --ditto-ok on purpose: green means a field was
+     verified as filled, and nothing else may borrow it. */
+  --ditto-brand: #1830f0;
+  --ditto-brand-strong: #0f24c8;
+  --ditto-brand-tint: #eaedfe;
+  --ditto-brand-ring: rgba(24, 48, 240, 0.32);
+
+  /* Status. The only other saturated colors in the system. */
+  --ditto-ok: #1f8a4c;
+  --ditto-ok-bg: #e8f4ec;
+  --ditto-warn: #a8620a;
+  --ditto-warn-bg: #fbf0e2;
+  --ditto-error: #b3261e;
+  --ditto-error-bg: #fbeae9;
+  --ditto-dot: #e5484d;
+
+  /* Radii */
+  --ditto-r-sm: 10px;
+  --ditto-r-btn: 14px;
+  --ditto-r-panel: 16px;
+  --ditto-r-card: 24px;
+  --ditto-r-pill: 9999px;
+
+  /* Elevation */
+  --ditto-shadow-1: rgba(0, 0, 0, 0.05) 0 2px 4px;
+  --ditto-shadow-card: rgba(0, 0, 0, 0.035) 0 1px 2px, rgba(0, 0, 0, 0.035) 0 3px 8px,
+    rgba(0, 0, 0, 0.043) 0 8px 28px;
+  --ditto-shadow-btn: rgba(0, 0, 0, 0.08) 0 0.5px 1px, rgba(0, 0, 0, 0.1) 0 1px 3px,
+    rgba(0, 0, 0, 0.08) 0 4px 12px;
+  --ditto-ring-dark: rgb(53, 53, 53) 0 0 0 1.25px inset;
+  --ditto-ring-light: rgb(201, 199, 196) 0 0 0 1.25px inset;
+  --ditto-glow-inner: rgb(255, 255, 255) 0 0 12px inset;
+
+  --ditto-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Inter,
+    system-ui, "Helvetica Neue", sans-serif;
+
+  font-family: var(--ditto-font);
+  color: var(--ditto-text);
+  font-size: 14px;
+  line-height: 1.4;
+  -webkit-font-smoothing: antialiased;
+  color-scheme: light;
+}
+
+/* Reset only inside our tree, so host page styles cannot bleed in. */
+.ditto-root *,
+.ditto-root *::before,
+.ditto-root *::after {
+  box-sizing: border-box;
+}
+
+.ditto-root button,
+.ditto-root input,
+.ditto-root textarea,
+.ditto-root select {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  margin: 0;
+}
+
+/* ---------------------------------------------------------------- Typography */
+
+.ditto-title {
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 0;
+}
+
+.ditto-section-title {
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.3px;
+  margin: 0 0 4px;
+}
+
+.ditto-subtle {
+  color: var(--ditto-text-muted);
+  font-size: 13px;
+}
+
+.ditto-eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
+  text-transform: uppercase;
+  color: var(--ditto-text-muted);
+}
+
+/* ------------------------------------------------------------------ Buttons */
+
+.ditto-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: var(--ditto-r-btn);
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 0.15s ease-out, filter 0.15s ease-out, opacity 0.15s ease;
+}
+
+.ditto-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.ditto-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.ditto-btn:focus-visible {
+  outline: 2px solid var(--ditto-text);
+  outline-offset: 2px;
+}
+
+.ditto-btn--primary {
+  background: linear-gradient(180deg, #3a3a3a, #353535);
+  color: #ffffff;
+  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.5);
+  box-shadow: var(--ditto-shadow-btn), var(--ditto-ring-dark),
+    rgba(255, 255, 255, 0.1) 0 0 12px inset;
+}
+
+.ditto-btn--primary:hover:not(:disabled) {
+  filter: brightness(1.12);
+}
+
+.ditto-btn--secondary {
+  background: transparent;
+  color: #1c1c1c;
+  box-shadow: rgba(0, 0, 0, 0.04) 0 0.5px 1px, rgba(0, 0, 0, 0.06) 0 1px 3px,
+    rgba(0, 0, 0, 0.04) 0 4px 12px, var(--ditto-ring-light), var(--ditto-glow-inner);
+}
+
+.ditto-btn--secondary:hover:not(:disabled) {
+  filter: brightness(0.98);
+}
+
+.ditto-btn--ghost {
+  background: transparent;
+  color: var(--ditto-text-secondary);
+  box-shadow: none;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
+.ditto-btn--ghost:hover:not(:disabled) {
+  background: var(--ditto-surface);
+}
+
+.ditto-btn--danger {
+  color: var(--ditto-error);
+}
+
+.ditto-btn--block {
+  width: 100%;
+}
+
+.ditto-btn--lg {
+  height: 46px;
+  font-size: 16px;
+}
+
+/* Small square icon button, used for close and delete affordances. */
+.ditto-icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: var(--ditto-r-sm);
+  background: transparent;
+  color: var(--ditto-text-muted);
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ditto-icon-btn:hover {
+  background: var(--ditto-surface);
+  color: var(--ditto-text);
+}
+
+/* ------------------------------------------------------------------- Fields */
+
+.ditto-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ditto-label {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--ditto-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.ditto-required {
+  color: var(--ditto-dot);
+}
+
+.ditto-input,
+.ditto-textarea,
+.ditto-select {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px 12px;
+  background: var(--ditto-surface);
+  border: 1px solid transparent;
+  border-radius: var(--ditto-r-sm);
+  outline: none;
+  transition: background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ditto-input::placeholder,
+.ditto-textarea::placeholder {
+  color: var(--ditto-text-faint);
+}
+
+.ditto-input:focus,
+.ditto-textarea:focus,
+.ditto-select:focus {
+  background: var(--ditto-card);
+  border-color: var(--ditto-border-strong);
+  box-shadow: rgba(0, 0, 0, 0.06) 0 1px 3px;
+}
+
+.ditto-textarea {
+  min-height: 88px;
+  resize: vertical;
+  line-height: 1.5;
+}
+
+.ditto-select {
+  appearance: none;
+  cursor: pointer;
+  padding-right: 32px;
+  background-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='rgba(0,0,0,0.5)' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+}
+
+.ditto-field-error {
+  font-size: 12px;
+  color: var(--ditto-error);
+}
+
+.ditto-hint {
+  font-size: 12px;
+  color: var(--ditto-text-muted);
+}
+
+/* Two and three column field rows. Collapse on narrow panes. */
+.ditto-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.ditto-grid--2 {
+  grid-template-columns: 1fr 1fr;
+}
+
+.ditto-grid--3 {
+  grid-template-columns: 1fr 1fr 1fr;
+}
+
+@media (max-width: 640px) {
+  .ditto-grid--2,
+  .ditto-grid--3 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* --------------------------------------------------------------- Checkboxes */
+
+.ditto-check {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--ditto-text-secondary);
+  user-select: none;
+}
+
+.ditto-check input {
+  width: 16px;
+  height: 16px;
+  accent-color: var(--ditto-brand);
+  cursor: pointer;
+}
+
+/* ------------------------------------------------------- Segmented control */
+
+.ditto-segmented {
+  display: inline-flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.ditto-segment {
+  height: 36px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: var(--ditto-r-sm);
+  background: var(--ditto-surface);
+  color: var(--ditto-text-secondary);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ditto-segment:hover {
+  filter: brightness(0.97);
+}
+
+.ditto-segment[aria-pressed="true"] {
+  background: var(--ditto-brand-tint);
+  color: var(--ditto-brand-strong);
+  box-shadow: var(--ditto-brand-ring) 0 0 0 1px inset;
+}
+
+/* -------------------------------------------------------------------- Chips */
+
+.ditto-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+
+.ditto-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 6px 0 12px;
+  border-radius: var(--ditto-r-pill);
+  background: var(--ditto-surface);
+  font-size: 13px;
+  color: var(--ditto-text-secondary);
+}
+
+.ditto-chip button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-radius: var(--ditto-r-pill);
+  background: transparent;
+  color: var(--ditto-text-muted);
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+}
+
+.ditto-chip button:hover {
+  background: rgba(0, 0, 0, 0.08);
+  color: var(--ditto-text);
+}
+
+.ditto-chip-input {
+  flex: 1;
+  min-width: 140px;
+  height: 30px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--ditto-r-pill);
+  background: transparent;
+  outline: none;
+}
+
+/* ------------------------------------------------------------------- Toggle */
+
+.ditto-toggle {
+  position: relative;
+  flex-shrink: 0;
+  width: 44px;
+  height: 26px;
+  border: 0;
+  border-radius: var(--ditto-r-pill);
+  background: var(--ditto-border-strong);
+  cursor: pointer;
+  transition: background 0.2s ease;
+}
+
+.ditto-toggle[aria-checked="true"] {
+  background: var(--ditto-brand);
+}
+
+.ditto-toggle::after {
+  content: "";
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #ffffff;
+  box-shadow: rgba(0, 0, 0, 0.2) 0 1px 3px;
+  transition: transform 0.2s ease;
+}
+
+.ditto-toggle[aria-checked="true"]::after {
+  transform: translateX(18px);
+}
+
+/* -------------------------------------------------------------------- Cards */
+
+.ditto-card {
+  background: var(--ditto-card);
+  border: 1px solid var(--ditto-border);
+  border-radius: var(--ditto-r-panel);
+  padding: 18px;
+}
+
+.ditto-card-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.ditto-card-title {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.ditto-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 14px 16px;
+  background: var(--ditto-surface);
+  border-radius: var(--ditto-r-panel);
+}
+
+.ditto-banner-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.ditto-banner-title {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.ditto-banner-text {
+  font-size: 12px;
+  color: var(--ditto-text-muted);
+  line-height: 1.45;
+}
+
+.ditto-empty {
+  padding: 28px 20px;
+  text-align: center;
+  color: var(--ditto-text-muted);
+  font-size: 13px;
+  background: var(--ditto-surface);
+  border-radius: var(--ditto-r-panel);
+}
+
+/* -------------------------------------------------------------- The modal */
+
+.ditto-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background: rgba(0, 0, 0, 0.45);
+}
+
+.ditto-modal {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 1000px;
+  height: min(760px, calc(100vh - 64px));
+  background: var(--ditto-bg);
+  border-radius: var(--ditto-r-card);
+  box-shadow: var(--ditto-shadow-card);
+  overflow: hidden;
+}
+
+.ditto-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  flex-shrink: 0;
+}
+
+.ditto-modal-notice {
+  margin: 0 24px 18px;
+  flex-shrink: 0;
+}
+
+.ditto-modal-body {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 20px;
+  flex: 1;
+  min-height: 0;
+  padding: 0 24px;
+}
+
+.ditto-modal-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  overflow-y: auto;
+  padding-bottom: 12px;
+}
+
+.ditto-nav-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: var(--ditto-r-sm);
+  background: transparent;
+  color: var(--ditto-text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ditto-nav-item:hover {
+  background: var(--ditto-surface);
+}
+
+.ditto-nav-item[aria-current="true"] {
+  background: var(--ditto-card);
+  color: var(--ditto-text);
+  box-shadow: var(--ditto-shadow-1), var(--ditto-brand-ring) 0 0 0 1.25px inset;
+}
+
+/* Marks a section that still needs attention. */
+.ditto-dot {
+  width: 7px;
+  height: 7px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--ditto-dot);
+}
+
+.ditto-modal-pane {
+  overflow-y: auto;
+  padding: 4px 4px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.ditto-modal-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 16px 24px;
+  flex-shrink: 0;
+  border-top: 1px solid var(--ditto-border-subtle);
+  background: var(--ditto-bg);
+}
+
+@media (max-width: 720px) {
+  .ditto-modal-body {
+    grid-template-columns: 1fr;
+  }
+
+  .ditto-modal-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding-bottom: 8px;
+  }
+
+  .ditto-nav-item {
+    white-space: nowrap;
+    width: auto;
+  }
+}
+
+/* ------------------------------------------------------------ Options page */
+
+.ditto-page {
+  min-height: 100vh;
+  background: var(--ditto-surface);
+  padding: 40px 20px;
+}
+
+.ditto-page-inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.ditto-brand {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.ditto-brand-name {
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.8px;
+}
+
+.ditto-brand-tag {
+  font-size: 13px;
+  color: var(--ditto-text-muted);
+}
+
+/* Panel variant of the modal, for the full-page options view where there is
+   no backdrop to sit on. */
+.ditto-modal--inline {
+  max-width: none;
+  height: auto;
+  min-height: 640px;
+  border: 1px solid var(--ditto-border);
+}

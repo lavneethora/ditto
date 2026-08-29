@@ -1,0 +1,138 @@
+import { canonical } from "./label"
+import type { AttemptOutcome, FieldSpec, FillResult, ProfileKey } from "./types"
+
+/**
+ * The only place a field becomes `filled`.
+ *
+ * PRD invariant 5.1. A Jobright screenshot shows a Workday resume dropzone
+ * sitting visibly empty, with an empty `Alert:` beneath it, while the panel
+ * reported 3/3 and 100% with a green check on Resume/CV. The write had
+ * succeeded; the attach had not. Nobody had lied, the panel just reported the
+ * attempt instead of the result.
+ *
+ * So a fill function can only ever report that it *wrote* something. This
+ * reads the DOM back and decides whether that write survived. If it cannot
+ * confirm the value is actually present, the result is `error`, never
+ * `filled`. A green check the user cannot trust is worse than no check,
+ * because they submit on the strength of it.
+ */
+
+/** Reads the current value back out of a control. */
+function readBack(field: FieldSpec): string | null {
+  const el = field.el
+
+  // A control removed from the document during the fill cannot be confirmed.
+  if (!el.isConnected) return null
+
+  switch (field.kind) {
+    case "text":
+    case "textarea":
+    case "date":
+    case "month":
+      return (el as HTMLInputElement).value ?? null
+
+    case "select": {
+      const select = el as HTMLSelectElement
+      const option = select.selectedOptions?.[0]
+      return option ? option.textContent ?? select.value : select.value
+    }
+
+    case "radiogroup": {
+      const chosen = field.options?.find(
+        (option) => option.el instanceof HTMLInputElement && option.el.checked
+      )
+      return chosen ? chosen.label : null
+    }
+
+    case "checkbox":
+      return (el as HTMLInputElement).checked ? "checked" : "unchecked"
+
+    case "file": {
+      const input = el instanceof HTMLInputElement ? el : null
+      const file = input?.files?.[0]
+      return file ? file.name : null
+    }
+
+    case "combobox":
+    case "multiselect": {
+      const input = el as HTMLInputElement
+      return input.value || (el as HTMLElement).innerText || null
+    }
+  }
+}
+
+/**
+ * Whether what came back out is what went in.
+ *
+ * Compared loosely, because controls legitimately reformat: a phone box turns
+ * "8324180086" into "(832) 418-0086", and a select echoes the option label
+ * rather than the value written. Loose here means normalized equality or
+ * containment in either direction, which tolerates reformatting without
+ * accepting an unrelated value.
+ */
+function matches(wrote: string, readBack: string): boolean {
+  const a = canonical(wrote)
+  const b = canonical(readBack)
+
+  if (!a || !b) return false
+  if (a === b) return true
+  if (a.includes(b) || b.includes(a)) return true
+
+  // Digit-only comparison rescues reformatted phone numbers and dates.
+  const digitsA = wrote.replace(/\D/g, "")
+  const digitsB = readBack.replace(/\D/g, "")
+
+  return digitsA.length > 0 && digitsA === digitsB
+}
+
+/**
+ * Promote an attempt to a result.
+ *
+ * `wrote` is the only outcome that can become `filled`, and only after the
+ * read-back agrees.
+ */
+export function verify(
+  field: FieldSpec,
+  attempt: AttemptOutcome,
+  key?: ProfileKey
+): FillResult {
+  const base = {
+    fieldId: field.id,
+    label: field.label,
+    required: field.required,
+    key
+  }
+
+  switch (attempt.kind) {
+    case "skipped":
+      return { ...base, status: "skipped", reason: attempt.reason }
+
+    case "needs_you":
+      return { ...base, status: "needs_you", reason: attempt.reason }
+
+    case "error":
+      return { ...base, status: "error", reason: attempt.reason }
+
+    case "wrote": {
+      const actual = readBack(field)
+
+      if (actual === null) {
+        return {
+          ...base,
+          status: "error",
+          reason: "Wrote the value but the field did not accept it"
+        }
+      }
+
+      if (!matches(attempt.value, actual)) {
+        return {
+          ...base,
+          status: "error",
+          reason: `Wrote "${attempt.value}" but the field shows "${actual}"`
+        }
+      }
+
+      return { ...base, status: "filled", value: actual }
+    }
+  }
+}

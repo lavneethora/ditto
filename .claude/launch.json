@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "ditto-harness",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "extension", "run", "harness"],
+      "port": 5173
+    }
+  ]
+}

@@ -1,0 +1,49 @@
+{
+  "name": "ditto-extension",
+  "displayName": "Ditto",
+  "version": "0.1.0",
+  "description": "Autofill job applications on Workday, Greenhouse, Ashby and Lever. Fill once, ditto everywhere.",
+  "author": "Lavneet Hora",
+  "scripts": {
+    "dev": "plasmo dev",
+    "build": "plasmo build",
+    "package": "plasmo package",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "score": "tsx scripts/score.ts",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@plasmohq/messaging": "^0.7.2",
+    "@plasmohq/storage": "^1.15.0",
+    "plasmo": "^0.90.5",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.315",
+    "@types/react": "^19.1.6",
+    "@types/react-dom": "^19.1.6",
+    "jsdom": "^26.1.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "vitest": "^3.2.4"
+  },
+  "overrides": {
+    "sharp": ">=0.35.3"
+  },
+  "manifest": {
+    "name": "Ditto: Job Application Autofill",
+    "permissions": [
+      "storage"
+    ],
+    "host_permissions": [
+      "https://*.myworkdayjobs.com/*",
+      "https://boards.greenhouse.io/*",
+      "https://job-boards.greenhouse.io/*",
+      "https://jobs.lever.co/*",
+      "https://*.ashbyhq.com/*"
+    ]
+  }
+}

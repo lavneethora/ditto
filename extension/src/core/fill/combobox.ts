@@ -367,7 +367,17 @@ export async function selectFromCombobox(
     }
   }
 
-  if (!opened) return { ok: false, reason: "Could not open the dropdown" }
+  if (!opened) {
+    // A box with no menu at all can still be one that pockets what you type.
+    // Workday's Skills showed nothing on screen for "supabase" and accepted
+    // it on Enter, so "no menu" is not the same as "nothing can be done".
+    if (isTextInput) {
+      const accepted = await commitTypedText(doc, input as HTMLInputElement, wanted, stale)
+      if (accepted) return { ok: true, value: wanted }
+    }
+
+    return { ok: false, reason: "Could not open the dropdown" }
+  }
 
   // Phase two: read the options, typing to filter only if the open menu is
   // empty. Typing is done at most once per query and never once per handle:
@@ -396,12 +406,33 @@ export async function selectFromCombobox(
     }
   }
 
-  if (options.length === 0) {
-    return { ok: false, reason: "The dropdown opened but returned no results" }
-  }
-
   if (!choice?.el) {
-    return { ok: false, reason: `Opened the dropdown but found no option matching "${wanted}"` }
+    /**
+     * Nothing to click, so offer the typed text itself.
+     *
+     * Some search boxes accept what you typed rather than requiring a pick.
+     * Reported live on Workday's Skills box: typing "supabase" showed an
+     * empty menu, and pressing Enter with nothing on screen added it anyway.
+     * Ditto never got that far, because Enter lived in the commit step and
+     * the commit step is only reached once an option has been found.
+     *
+     * Still held to the same standard as everything else: it counts only if
+     * the control's value changes to hold it. On these widgets that means a
+     * pill appeared, which is a real signal rather than the box still showing
+     * what was typed into it.
+     */
+    if (isTextInput) {
+      const accepted = await commitTypedText(doc, input as HTMLInputElement, wanted, stale)
+      if (accepted) return { ok: true, value: wanted }
+    }
+
+    return {
+      ok: false,
+      reason:
+        options.length === 0
+          ? "The dropdown opened but returned no results"
+          : `Opened the dropdown but found no option matching "${wanted}"`
+    }
   }
 
   const committed = await commit(doc, input, choice, stale)
@@ -417,6 +448,57 @@ export async function selectFromCombobox(
   }
 
   return { ok: true, value: choice.label }
+}
+
+/**
+ * Offer a search box the typed text, for widgets that take it on Enter.
+ *
+ * Only reached when there was no option to pick. The value is typed if it is
+ * not already in the box, and the read-back has to change for this to count.
+ */
+async function commitTypedText(
+  doc: Document,
+  input: HTMLInputElement,
+  wanted: string,
+  stale: ReadonlySet<Element>
+): Promise<boolean> {
+  const current = () => readComboboxValue((relocate(input) ?? input) as HTMLElement)
+  const before = current()
+
+  if (canonical(input.value) !== canonical(wanted)) {
+    await typeSequentially(input, wanted)
+  }
+
+  input.focus?.()
+  pressKey(input, "Enter", 13)
+
+  /**
+   * The widget has to have taken the text OUT of the box.
+   *
+   * Without that, this cannot tell a box that accepted the value from one
+   * that is simply still showing what was typed into it. Lever's location
+   * typeahead is the second kind: it discards typed text on blur, and its
+   * read-back is the input's own value, so "the value is there" is true right
+   * up until the field wipes itself.
+   *
+   * Workday's Skills box clears itself and shows a pill, which is evidence
+   * from somewhere other than the box being read.
+   */
+  const took = () => {
+    const consumed = canonical(input.value) !== canonical(wanted)
+    if (!consumed) return false
+
+    const now = current()
+    return Boolean(now) && now !== before && alreadyHolds(now, wanted)
+  }
+
+  // A short budget. This is the last thing tried before giving up, and a
+  // widget that takes typed text does so immediately; waiting longer only
+  // slows down every field that genuinely cannot be filled.
+  if (!(await waitUntil(took, 800))) return false
+
+  closeMenu(doc, input, stale, took)
+  return true
 }
 
 /**

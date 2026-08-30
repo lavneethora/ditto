@@ -161,6 +161,50 @@ export function dropFiles(target: Element, files: File[]): void {
   }
 }
 
+/**
+ * Find a control again after a re-render replaced its DOM node.
+ *
+ * React apps do not always mutate an input in place. Workday commits a write
+ * into its own state and then paints a NEW element carrying the value, which
+ * leaves the reference captured during the scan detached from the document.
+ * The value is on the page, correct and visible, and the element Ditto is
+ * holding is a corpse.
+ *
+ * Read-back then finds nothing and reports "wrote the value but the field did
+ * not accept it" over a field the user can see is filled. That is invariant
+ * 5.1 failing safe, which is the right direction, but it is still wrong, and a
+ * panel that cries wolf on six correct fields is one the user stops reading.
+ *
+ * Identity comes from what the site itself published, in order of how much it
+ * pins the element down. Returns null only when the control is genuinely gone.
+ */
+export function relocate(el: Element): Element | null {
+  if (el.isConnected) return el
+
+  const doc = el.ownerDocument
+  if (!doc) return null
+
+  const id = el.getAttribute("id")
+  if (id) {
+    const found = doc.getElementById(id)
+    if (found) return found
+  }
+
+  const automation = el.getAttribute("data-automation-id")
+  if (automation) {
+    const found = doc.querySelector(`[data-automation-id="${CSS.escape(automation)}"]`)
+    if (found) return found
+  }
+
+  const name = el.getAttribute("name")
+  if (name) {
+    const found = doc.querySelector(`${el.tagName.toLowerCase()}[name="${CSS.escape(name)}"]`)
+    if (found) return found
+  }
+
+  return null
+}
+
 /** True when the element is still in the document and could accept input. */
 export function isLive(el: Element): boolean {
   if (!el.isConnected) return false

@@ -6,7 +6,6 @@ import { summaryLine } from "~core/report"
 import { describeResume } from "~profile/resume"
 import { Wordmark } from "~ui/Logo"
 import { ProfileModal } from "~ui/modal/ProfileModal"
-import { ResumeCard } from "~ui/ResumeCard"
 import { useProfile } from "~ui/useProfile"
 
 import { ResultGroup } from "./ResultRow"
@@ -21,6 +20,9 @@ import { ResultGroup } from "./ResultRow"
  */
 
 type Phase = "idle" | "running" | "done"
+
+/** Kept in sync with .ditto-drawer in styles.css. */
+const DRAWER_WIDTH = 380
 
 export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
   const profileState = useProfile()
@@ -38,6 +40,31 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
 
   const cancelled = useRef(false)
   const resurveyTimer = useRef(0)
+  const resumeInput = useRef<HTMLInputElement>(null)
+
+  /**
+   * Dock the drawer by squeezing the page, rather than floating over it.
+   *
+   * A `position: fixed` panel covers the right-hand side of the form, which on
+   * a Workday or Greenhouse layout is exactly where the inputs are. Reserving
+   * the space instead means the page reflows and every field stays reachable,
+   * which is what Jobright does and why its panel never hides anything.
+   *
+   * The margin goes on <html> so the page's own fixed headers reflow with it.
+   */
+  useEffect(() => {
+    const root = doc.documentElement
+    const previousMargin = root.style.marginRight
+    const previousTransition = root.style.transition
+
+    root.style.transition = "margin-right 0.25s ease"
+    root.style.marginRight = collapsed ? "" : `${DRAWER_WIDTH}px`
+
+    return () => {
+      root.style.marginRight = previousMargin
+      root.style.transition = previousTransition
+    }
+  }, [collapsed, doc])
 
   /** Fields present on the page right now, for the detection line. */
   const [survey, setSurvey] = useState<{ fields: FieldSpec[]; recognized: number }>({
@@ -197,8 +224,15 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
           )}
 
           <button type="button" className="ditto-listrow" onClick={() => setShowProfile(true)}>
+            <span className="ditto-listrow-main">Your autofill information</span>
+            <span className="ditto-chevron" aria-hidden="true">
+              ›
+            </span>
+          </button>
+
+          <button type="button" className="ditto-listrow" onClick={() => resumeInput.current?.click()}>
             <span className="ditto-listrow-main">
-              Your autofill information
+              Upload resume
               <span className="ditto-listrow-sub">
                 {profile ? describeResume(profile.resume) : "Loading..."}
               </span>
@@ -208,14 +242,21 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
             </span>
           </button>
 
-          {profile && (
-            <ResumeCard
-              resume={profile.resume}
-              error={profileState.resumeError}
-              onUpload={profileState.uploadResume}
-              onRemove={profileState.removeResume}
-            />
+          {profileState.resumeError && (
+            <div className="ditto-field-error">{profileState.resumeError}</div>
           )}
+
+          <input
+            ref={resumeInput}
+            type="file"
+            accept=".pdf,.doc,.docx,application/pdf,application/msword"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const file = e.target.files?.[0]
+              if (file) void profileState.uploadResume(file)
+              e.target.value = ""
+            }}
+          />
         </div>
 
         {next && (

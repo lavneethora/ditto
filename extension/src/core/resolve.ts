@@ -178,6 +178,12 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
       return text(p.city, "city")
     case "personal.state":
       return text(p.state, "state")
+    case "personal.location":
+      // Derived, like personal.fullName, rather than stored again. Lever's
+      // "Current location" wants a place, and the profile already holds the
+      // pieces: storing a second copy is a second thing to keep in sync.
+      return text([p.city, p.state].filter(Boolean).join(", "), "city and state")
+
     case "personal.county":
       return text(p.county, "county")
     case "personal.postalCode":

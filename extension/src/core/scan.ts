@@ -165,6 +165,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
   const fields: FieldSpec[] = []
   const seenRadioGroups = new Set<string>()
   const seenCheckboxGroups = new Set<string>()
+  const seenCheckboxContainers = new WeakSet<Element>()
 
   const candidates = Array.from(root.querySelectorAll(CONTROL_SELECTOR))
 
@@ -227,16 +228,35 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
     // Checkboxes sharing a name are one multi-select question, not several.
     // Lever's "check all that apply" ships six of them, and reporting six rows
     // for one question makes the panel read as though six things need doing.
-    if (kind === "checkbox" && el instanceof HTMLInputElement && el.name) {
-      const boxes = Array.from(
-        root.querySelectorAll<HTMLInputElement>(
-          `input[type='checkbox'][name="${CSS.escape(el.name)}"]`
-        )
-      )
+    if (kind === "checkbox" && el instanceof HTMLInputElement) {
+      // Two ways a set of checkboxes forms one question. Lever gives every box
+      // the same name; Ashby gives each the option's own text as its name and
+      // relies on a shared fieldset. Grouping only by name misses the second
+      // and reports one row per option.
+      const sharingName = el.name
+        ? Array.from(
+            root.querySelectorAll<HTMLInputElement>(
+              `input[type='checkbox'][name="${CSS.escape(el.name)}"]`
+            )
+          )
+        : []
+
+      const fieldset = el.closest("fieldset")
+      const sharingFieldset = fieldset
+        ? Array.from(fieldset.querySelectorAll<HTMLInputElement>("input[type='checkbox']"))
+        : []
+
+      const grouped = sharingName.length > 1
+      const boxes = grouped ? sharingName : sharingFieldset
 
       if (boxes.length > 1) {
-        if (seenCheckboxGroups.has(el.name)) continue
-        seenCheckboxGroups.add(el.name)
+        if (grouped) {
+          if (seenCheckboxGroups.has(el.name)) continue
+          seenCheckboxGroups.add(el.name)
+        } else {
+          if (seenCheckboxContainers.has(fieldset!)) continue
+          seenCheckboxContainers.add(fieldset!)
+        }
 
         const groupLabel = normalizeLabel(
           adapter?.label?.(el, doc) || resolveGroupLabel(boxes) || resolveLabel(el, doc)
@@ -248,7 +268,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
           kind: "multiselect",
           label: groupLabel,
           required: boxes.some((b) => b.required),
-          name: el.name,
+          name: grouped ? el.name : undefined,
           section: resolveSection(el),
           options: boxes.map((b) => ({
             value: b.value,

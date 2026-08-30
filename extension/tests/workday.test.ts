@@ -87,15 +87,24 @@ describe("the bot traps", () => {
 })
 
 describe("the wizard", () => {
-  it("reads the step name without the screen-reader announcement", () => {
-    // The active step holds two labels: an aria-live "current step 1 of 7"
-    // and the name. textContent concatenates them.
-    expect(workday.step?.(document)).toBe("Create Account/Sign In")
+  it("reads the step name from the heading", () => {
+    // The heading, not the progress bar. This tenant's progress bar names the
+    // step ("Create Account/Sign In"); the tenant in
+    // workday-my-information.html puts only an aria-live "current step 1 of 6"
+    // there and no name at all. Both render the name as the h3, and the h3 is
+    // what the user is looking at.
+    expect(workday.step?.(document)).toBe("Sign In")
   })
 
   it("reports no step on a page outside the wizard", () => {
     document.body.replaceChildren()
     expect(workday.step?.(document)).toBeNull()
+  })
+
+  it("offers no next control on the sign-in step", () => {
+    // There is no pageFooterNextButton here, and the sign-in button is not a
+    // substitute for one.
+    expect(workday.nextControl?.(document)).toBeNull()
   })
 })
 

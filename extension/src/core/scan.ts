@@ -178,7 +178,9 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
     if (!kind) continue
 
     if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {
-      if (el.disabled || el.readOnly) continue
+      if (el.disabled) continue
+      // A select has no readOnly property; only inputs and textareas do.
+      if ((el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) && el.readOnly) continue
     }
 
     if (isEffectivelyHidden(el)) continue

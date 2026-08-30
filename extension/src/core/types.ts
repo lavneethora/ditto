@@ -77,12 +77,12 @@ export const PROFILE_KEYS = [
   "personal.addressLine2",
   "personal.city",
   "personal.state",
+  "personal.county",
   "personal.postalCode",
   "personal.country",
-
-  "links.linkedin",
-  "links.github",
-  "links.portfolio",
+  "personal.linkedin",
+  "personal.github",
+  "personal.website",
 
   "education[].school",
   "education[].degree",
@@ -107,11 +107,9 @@ export const PROFILE_KEYS = [
   "eeo.gender",
   "eeo.race",
   "eeo.hispanicLatino",
-
-  "preferences.desiredSalary",
-  "preferences.earliestStartDate",
-  "preferences.willingToRelocate",
-  "preferences.howDidYouHear",
+  "eeo.lgbtq",
+  "eeo.sexualOrientation",
+  "eeo.pronouns",
 
   "answers",
   "resume"

@@ -143,7 +143,7 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
     <>
       <div className="ditto-drawer ditto-root" data-collapsed="false">
         <header className="ditto-drawer-head">
-          <Wordmark size={24} tagline={false} />
+          <Wordmark size={20} tagline={false} />
           <button
             type="button"
             className="ditto-icon-btn"

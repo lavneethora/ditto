@@ -43,6 +43,12 @@ const FIELD_NAMES: Record<string, ProfileKey> = {
   postalCode: "personal.postalCode",
   country: "personal.country",
 
+  school: "education[].school",
+  degree: "education[].degree",
+  // Workday's "Field of Study" is the profile's major.
+  fieldOfStudy: "education[].major",
+  skills: "skills",
+
   phoneNumber: "personal.phone",
   phoneType: "personal.phoneType",
   countryPhoneCode: "personal.phoneCountryCode"

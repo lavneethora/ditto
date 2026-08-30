@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { Adapter, FieldSpec, FillReport, FillResult } from "~core/types"
 import { analyze, autofill } from "~core/engine"
@@ -38,9 +38,24 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
     results: []
   })
 
+  /**
+   * Multi-step state.
+   *
+   * Greenhouse, Lever and Ashby are one page: fill it, review it, submit it.
+   * Workday is a wizard, and the drawer has to say something different on
+   * page four than it did on page one. `step` is the heading of the step on
+   * screen, and `filledAStep` records that Ditto has completed a run
+   * somewhere in this wizard, which is what turns "Autofill this page" into
+   * "Continue Autofill".
+   */
+  const [step, setStep] = useState<string | null>(null)
+  const [filledAStep, setFilledAStep] = useState(false)
+  const [next, setNext] = useState<HTMLElement | null>(null)
+
   const cancelled = useRef(false)
   const resurveyTimer = useRef(0)
   const resumeInput = useRef<HTMLInputElement>(null)
+  const lastStep = useRef<string | null>(null)
 
   /**
    * Dock the drawer by squeezing the page, rather than floating over it.
@@ -75,7 +90,16 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
   // Re-survey when the form changes. Multi-step wizards swap the whole form
   // in place without a navigation, so a one-shot scan goes stale immediately.
   useEffect(() => {
-    const run = () => setSurvey(analyze(doc, adapter))
+    const run = () => {
+      setSurvey(analyze(doc, adapter))
+
+      // Both of these move when the wizard does, and the old `next` was
+      // memoised on [adapter, doc], so after advancing a page it still
+      // pointed at a button that no longer existed.
+      setStep(adapter.step?.(doc) ?? null)
+      setNext(adapter.nextControl?.(doc) ?? null)
+    }
+
     run()
 
     const observer = new MutationObserver(() => {
@@ -106,6 +130,7 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
 
     setReport(finished)
     setPhase("done")
+    setFilledAStep(true)
   }, [adapter, doc, profile, survey.fields.length])
 
   const cancel = useCallback(() => {
@@ -125,7 +150,23 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
     [doc, survey.fields]
   )
 
-  const next = useMemo(() => adapter.nextControl?.(doc) ?? null, [adapter, doc])
+  /**
+   * A new step is a new form, so the last one's results are not about it.
+   *
+   * Without this the panel keeps showing "10 filled" from My Information
+   * while the user looks at My Experience, which is a report about a page
+   * that is no longer on screen.
+   */
+  useEffect(() => {
+    const previous = lastStep.current
+    lastStep.current = step
+
+    if (previous === null || previous === step) return
+
+    setReport(null)
+    setPhase("idle")
+    setLive({ done: 0, total: 0, results: [] })
+  }, [step])
 
   if (collapsed) {
     return (
@@ -194,12 +235,32 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
                 className="ditto-btn ditto-btn--primary ditto-btn--block ditto-btn--lg"
                 disabled={!profile || survey.recognized === 0}
                 onClick={start}>
-                {phase === "done" ? "Autofill again" : "Autofill this page"}
+                {phase === "done"
+                  ? "Autofill again"
+                  : filledAStep
+                    ? "Continue Autofill"
+                    : "Autofill this page"}
               </button>
 
               <div className="ditto-safety">
                 Ditto never submits. Review everything before you send it.
               </div>
+
+              {/* Only once Ditto has actually done something. Offering to
+                  advance the page before the user has filled it invites
+                  skipping past a form they came here to complete.
+
+                  Absent on the last step: nextControl refuses to hand back a
+                  button that says Submit, so this cannot become the thing
+                  that sends the application. */}
+              {next && (phase === "done" || filledAStep) && (
+                <button
+                  type="button"
+                  className="ditto-btn ditto-btn--secondary ditto-btn--block"
+                  onClick={() => next.click()}>
+                  Next Page
+                </button>
+              )}
             </>
           )}
 
@@ -262,16 +323,6 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
           />
         </div>
 
-        {next && (
-          <div className="ditto-drawer-foot">
-            <button
-              type="button"
-              className="ditto-btn ditto-btn--secondary ditto-btn--block"
-              onClick={() => (next as HTMLElement).click()}>
-              Continue to the next page ▸
-            </button>
-          </div>
-        )}
       </div>
 
       {showProfile && profile && (

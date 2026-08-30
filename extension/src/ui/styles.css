@@ -686,3 +686,274 @@
   min-height: 640px;
   border: 1px solid var(--ditto-border);
 }
+
+/* ================================================================== Drawer */
+
+/*
+ * The injected panel. Fixed to the right edge of the viewport at a z-index
+ * above anything an ATS is likely to use, and mounted inside a shadow root so
+ * Workday's and Greenhouse's global CSS cannot reach it.
+ */
+
+.ditto-drawer {
+  position: fixed;
+  top: 0;
+  right: 0;
+  z-index: 2147483000;
+  display: flex;
+  flex-direction: column;
+  width: 380px;
+  max-width: 100vw;
+  height: 100vh;
+  background: var(--ditto-bg);
+  border-left: 1px solid var(--ditto-border);
+  box-shadow: rgba(0, 0, 0, 0.08) -4px 0 24px;
+  transition: transform 0.25s ease;
+}
+
+.ditto-drawer[data-collapsed="true"] {
+  transform: translateX(100%);
+}
+
+/* The tab that brings a collapsed drawer back. */
+.ditto-tab {
+  position: fixed;
+  top: 96px;
+  right: 0;
+  z-index: 2147483000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 44px;
+  padding: 0 14px 0 12px;
+  border: 1px solid var(--ditto-border);
+  border-right: 0;
+  border-radius: var(--ditto-r-btn) 0 0 var(--ditto-r-btn);
+  background: var(--ditto-bg);
+  box-shadow: rgba(0, 0, 0, 0.08) -2px 0 12px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--ditto-text);
+}
+
+.ditto-tab:hover {
+  background: var(--ditto-card);
+}
+
+.ditto-drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--ditto-border-subtle);
+  flex-shrink: 0;
+}
+
+.ditto-drawer-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.ditto-drawer-foot {
+  flex-shrink: 0;
+  padding: 12px 16px;
+  border-top: 1px solid var(--ditto-border-subtle);
+  background: var(--ditto-bg);
+}
+
+.ditto-detect {
+  font-size: 13px;
+  color: var(--ditto-text-secondary);
+}
+
+.ditto-detect strong {
+  color: var(--ditto-text);
+}
+
+.ditto-safety {
+  font-size: 12px;
+  color: var(--ditto-text-muted);
+  text-align: center;
+}
+
+/* ------------------------------------------------------------- Progress -- */
+
+.ditto-progress-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.ditto-progress-pct {
+  color: var(--ditto-text-muted);
+  font-weight: 500;
+}
+
+.ditto-bar {
+  height: 8px;
+  border-radius: var(--ditto-r-pill);
+  background: var(--ditto-surface);
+  overflow: hidden;
+}
+
+.ditto-bar-fill {
+  height: 100%;
+  border-radius: var(--ditto-r-pill);
+  background: var(--ditto-ok);
+  transition: width 0.3s ease;
+}
+
+/* -------------------------------------------------------------- Results -- */
+
+.ditto-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+  color: var(--ditto-text-muted);
+  margin-bottom: 8px;
+}
+
+.ditto-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.ditto-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 8px 10px;
+  border-radius: var(--ditto-r-sm);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.ditto-row:hover {
+  background: var(--ditto-surface);
+}
+
+/* Clickable rows scroll the underlying form field into view. */
+.ditto-row--action {
+  cursor: pointer;
+  border: 0;
+  background: transparent;
+  width: 100%;
+  text-align: left;
+  font-family: inherit;
+}
+
+.ditto-row-label {
+  flex: 1;
+  min-width: 0;
+  font-weight: 500;
+  color: var(--ditto-text);
+  overflow-wrap: anywhere;
+}
+
+.ditto-row-detail {
+  font-weight: 400;
+  color: var(--ditto-text-muted);
+  font-size: 12px;
+  margin-top: 1px;
+  overflow-wrap: anywhere;
+}
+
+/* Status marks. Green is reserved for a verified fill and nothing else. */
+.ditto-mark {
+  flex-shrink: 0;
+  width: 17px;
+  height: 17px;
+  margin-top: 1px;
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.ditto-mark--filled {
+  background: var(--ditto-ok);
+  color: #fff;
+}
+
+.ditto-mark--error {
+  background: var(--ditto-error);
+  color: #fff;
+}
+
+.ditto-mark--needs {
+  background: var(--ditto-warn-bg);
+  color: var(--ditto-warn);
+  box-shadow: rgba(168, 98, 10, 0.3) 0 0 0 1px inset;
+}
+
+.ditto-mark--skipped {
+  background: var(--ditto-surface);
+  color: var(--ditto-text-muted);
+}
+
+.ditto-mark--pending {
+  background: var(--ditto-surface);
+  color: var(--ditto-text-faint);
+}
+
+/* ----------------------------------------------------------- List rows --- */
+
+.ditto-listrow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--ditto-border);
+  border-radius: var(--ditto-r-panel);
+  background: var(--ditto-card);
+  cursor: pointer;
+  font-size: 14px;
+  font-family: inherit;
+  text-align: left;
+  color: var(--ditto-text);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ditto-listrow:hover {
+  box-shadow: var(--ditto-shadow-1);
+  border-color: var(--ditto-border-strong);
+}
+
+.ditto-listrow-main {
+  min-width: 0;
+}
+
+.ditto-listrow-sub {
+  font-size: 12px;
+  color: var(--ditto-text-muted);
+  margin-top: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ditto-chevron {
+  flex-shrink: 0;
+  color: var(--ditto-text-faint);
+}

@@ -1,5 +1,28 @@
+import { COUNTRIES, subdivisionLabel, subdivisionsFor } from "~profile/geo"
 import { Checkbox, Select, TextInput } from "~ui/components"
 import type { SectionProps } from "../shared"
+
+/**
+ * Builds a Select's options, keeping any saved value that is not in the list.
+ *
+ * Without this, a value typed before the list existed (or one from a country
+ * whose subdivisions Ditto does not carry) would render as a blank select and
+ * be silently overwritten on the next save. Losing a saved answer without
+ * saying so is worse than showing an unusual one.
+ */
+function withCurrent(
+  values: readonly string[],
+  current: string,
+  placeholder: string
+): { value: string; label: string }[] {
+  const options = [{ value: "", label: placeholder }]
+
+  if (current && !values.includes(current)) {
+    options.push({ value: current, label: `${current} (saved)` })
+  }
+
+  return [...options, ...values.map((v) => ({ value: v, label: v }))]
+}
 
 const PHONE_TYPES = [
   { value: "mobile" as const, label: "Mobile" },
@@ -17,6 +40,9 @@ const PHONE_TYPES = [
 export function PersonalSection({ profile, update }: SectionProps) {
   const p = profile.personal
   const set = (patch: Partial<typeof p>) => update({ personal: { ...p, ...patch } })
+
+  const states = subdivisionsFor(p.country)
+  const stateLabel = subdivisionLabel(p.country)
 
   return (
     <>
@@ -117,18 +143,45 @@ export function PersonalSection({ profile, update }: SectionProps) {
       />
 
       <div className="ditto-grid ditto-grid--3">
-        <TextInput
+        <Select
           label="Country"
           value={p.country}
-          onChange={(v) => set({ country: v })}
-          hint="Spelled out, so dropdowns can match it"
+          options={withCurrent(COUNTRIES, p.country, "Select a country")}
+          onChange={(country) => {
+            // A state from the old country is wrong under the new one, so drop
+            // it rather than write "Texas" onto a Canadian address. Only when
+            // it is genuinely invalid: switching between two countries that
+            // both use free text should not throw the answer away.
+            const next = subdivisionsFor(country)
+            const stillValid =
+              next.length === 0 || next.some((sub) => sub.name === p.state)
+
+            set({ country, state: stillValid ? p.state : "" })
+          }}
         />
-        <TextInput
-          label="State / Province"
-          value={p.state}
-          onChange={(v) => set({ state: v })}
-          hint="Full name, not the abbreviation"
-        />
+
+        {states.length > 0 ? (
+          <Select
+            label={stateLabel}
+            value={p.state}
+            options={withCurrent(
+              states.map((sub) => sub.name),
+              p.state,
+              `Select a ${stateLabel.toLowerCase()}`
+            )}
+            onChange={(v) => set({ state: v })}
+          />
+        ) : (
+          // Most countries have no fixed subdivision list a form would offer,
+          // so free text is the honest control there.
+          <TextInput
+            label={stateLabel}
+            value={p.state}
+            onChange={(v) => set({ state: v })}
+            hint="Full name, not the abbreviation"
+          />
+        )}
+
         <TextInput label="City" value={p.city} onChange={(v) => set({ city: v })} />
       </div>
 

@@ -224,7 +224,7 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
           )}
 
           <button type="button" className="ditto-listrow" onClick={() => setShowProfile(true)}>
-            <span className="ditto-listrow-main">Your autofill information</span>
+            <span className="ditto-listrow-main">Your Autofill Information</span>
             <span className="ditto-chevron" aria-hidden="true">
               ›
             </span>
@@ -232,7 +232,7 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
 
           <button type="button" className="ditto-listrow" onClick={() => resumeInput.current?.click()}>
             <span className="ditto-listrow-main">
-              Upload resume
+              Upload Resume
               <span className="ditto-listrow-sub">
                 {profile ? describeResume(profile.resume) : "Loading..."}
               </span>

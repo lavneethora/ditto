@@ -10,7 +10,7 @@
     "package": "plasmo package",
     "test": "vitest run",
     "test:watch": "vitest",
-    "score": "tsx scripts/score.ts",
+    "score": "tsx scripts/score.mts",
     "typecheck": "tsc --noEmit",
     "harness": "vite"
   },

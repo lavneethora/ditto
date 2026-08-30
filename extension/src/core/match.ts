@@ -393,6 +393,7 @@ export function match(
   for (const rule of candidates) {
     if (question && !rule.allowOnQuestion) continue
     if (!rule.test.test(label)) continue
+    if (DISQUALIFIERS[rule.key]?.test(label)) continue
 
     const weight = rule.weight ?? 50
     if (weight <= bestWeight) continue
@@ -406,6 +407,24 @@ export function match(
   }
 
   return best
+}
+
+/**
+ * Labels that veto a key the weighted rules would otherwise award.
+ *
+ * "Phone Extension" contains the word "phone", nothing in the profile is a
+ * closer match, and so the phone rule wins on weight and Ditto writes a full
+ * ten-digit number into a box that wants three. Workday, Greenhouse and Lever
+ * all ship this field.
+ *
+ * There is no extension in the profile, so the right answer is no key at all.
+ * That puts the field in NEEDS YOU, where the user leaves it blank in the
+ * normal case and types four digits in the rare one. A veto rather than a
+ * lower weight, because the failure is not "matched the wrong key" but
+ * "matched a key whose value does not belong in this box at any confidence".
+ */
+const DISQUALIFIERS: Partial<Record<ProfileKey, RegExp>> = {
+  "personal.phone": /\bext(?:ension)?\b/
 }
 
 /**

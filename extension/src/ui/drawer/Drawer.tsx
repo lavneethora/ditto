@@ -242,10 +242,6 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
                     : "Autofill this page"}
               </button>
 
-              <div className="ditto-safety">
-                Ditto never submits. Review everything before you send it.
-              </div>
-
               {/* Only once Ditto has actually done something. Offering to
                   advance the page before the user has filled it invites
                   skipping past a form they came here to complete.
@@ -256,11 +252,17 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
               {next && (phase === "done" || filledAStep) && (
                 <button
                   type="button"
-                  className="ditto-btn ditto-btn--secondary ditto-btn--block"
+                  className="ditto-btn ditto-btn--secondary ditto-btn--block ditto-btn--lg"
                   onClick={() => next.click()}>
                   Next Page
                 </button>
               )}
+
+              {/* Under whichever buttons are showing, because it is about
+                  both of them: the one that fills and the one that moves on. */}
+              <div className="ditto-safety">
+                Ditto never submits. Review everything before you send it.
+              </div>
             </>
           )}
 

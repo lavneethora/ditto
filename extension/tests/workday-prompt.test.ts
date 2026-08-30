@@ -107,3 +107,78 @@ describe("the row that says there is nothing", () => {
     expect(document.getElementById("chosen")!.children).toHaveLength(0)
   })
 })
+
+describe("a widget that only commits on Enter", () => {
+  /**
+   * Reported live, repeatedly. Workday's School box shows "Search Results (2)"
+   * with the exact match highlighted, Ditto presses the option, and the field
+   * stays empty. Its own instructions say to type the name and press Enter,
+   * and that is the only gesture the widget honours.
+   */
+
+  /** Results appear and highlight the top hit; only Enter commits. */
+  function enterOnly(labels: string[]): HTMLInputElement {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-uxi-widget-type="multiselect">
+         <input id="school" type="text" placeholder="Search">
+         <ul role="listbox" data-automation-id="selectedItemList" id="chosen"></ul>
+       </div>
+       <div data-popper-placement="top">
+         <div data-automation-id="activeListContainer" role="listbox">
+           ${labels.map(row).join("")}
+         </div>
+       </div>`
+    )
+
+    const input = document.getElementById("school") as HTMLInputElement
+
+    // The top hit starts highlighted and ArrowDown moves it, which is what
+    // makes Enter a specific gesture rather than a guess.
+    let highlighted = 0
+
+    input.addEventListener("keydown", (event) => {
+      const key = (event as KeyboardEvent).key
+
+      if (key === "ArrowDown") {
+        highlighted = Math.min(highlighted + 1, labels.length - 1)
+        return
+      }
+
+      if (key !== "Enter") return
+
+      const taken = labels[highlighted]
+      document
+        .getElementById("chosen")!
+        .insertAdjacentHTML(
+          "beforeend",
+          `<li><p data-automation-id="promptOption" data-automation-label="${taken}">${taken}</p></li>`
+        )
+      input.value = ""
+    })
+
+    return input
+  }
+
+  it("takes the exact top hit with Enter", async () => {
+    const input = enterOnly(["Texas Tech University", "Texas Tech University Health Sciences Center"])
+
+    const result = await selectFromCombobox(input, "Texas Tech University")
+
+    expect(result.ok).toBe(true)
+    expect(document.getElementById("chosen")!.textContent).toBe("Texas Tech University")
+  })
+
+  it("walks the highlight down to its option before pressing Enter", async () => {
+    // Enter takes whatever is highlighted, and on a multi-select a wrong guess
+    // is not a wrong value but an extra one sitting alongside the right one
+    // with nothing to remove it.
+    const input = enterOnly(["Texas Tech University Health Sciences Center", "Texas Tech University"])
+
+    const result = await selectFromCombobox(input, "Texas Tech University")
+
+    expect(result.ok).toBe(true)
+    expect(document.getElementById("chosen")!.textContent).toBe("Texas Tech University")
+  })
+})

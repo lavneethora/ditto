@@ -100,65 +100,81 @@ export function EeoSection({ profile, update }: SectionProps) {
         </div>
       </div>
 
+      {/* One card per question. They were briefly merged into a single box
+          when the opt-out wrapper was removed, which ran them together and
+          made a list of separate voluntary questions read as one blob. */}
       <div className="ditto-card">
-        <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-          <Segmented
-            label="Do you have a disability?"
-            value={eeo.disability}
-            options={YES_NO_DECLINE}
-            onChange={(v) => set({ disability: TriState.parse(v) })}
-          />
-
-          <Segmented
-            label="Are you a veteran?"
-            value={eeo.veteran}
-            options={YES_NO_DECLINE}
-            onChange={(v) => set({ veteran: TriState.parse(v) })}
-          />
-
-          <Segmented
-            label="Are you Hispanic or Latino?"
-            value={eeo.hispanicLatino}
-            options={YES_NO_DECLINE}
-            onChange={(v) => set({ hispanicLatino: TriState.parse(v) })}
-          />
-
-          <Segmented
-            label="Do you identify as LGBTQ+?"
-            value={eeo.lgbtq}
-            options={YES_NO_DECLINE}
-            onChange={(v) => set({ lgbtq: TriState.parse(v) })}
-          />
-
-          <Select
-            label="Gender"
-            value={eeo.gender}
-            options={GENDERS}
-            onChange={(v) => set({ gender: v })}
-          />
-
-          <Select
-            label="Race or ethnicity"
-            value={eeo.race}
-            options={RACES}
-            onChange={(v) => set({ race: v })}
-          />
-
-          <Select
-            label="Sexual orientation"
-            value={eeo.sexualOrientation}
-            options={ORIENTATIONS}
-            onChange={(v) => set({ sexualOrientation: v })}
-          />
-
-          <Select
-            label="Pronouns"
-            value={eeo.pronouns}
-            options={PRONOUNS}
-            onChange={(v) => set({ pronouns: v })}
-          />
-        </div>
+        <Segmented
+          label="Do you have a disability?"
+          value={eeo.disability}
+          options={YES_NO_DECLINE}
+          onChange={(v) => set({ disability: TriState.parse(v) })}
+        />
       </div>
+
+      <div className="ditto-card">
+        <Segmented
+          label="Are you a veteran?"
+          value={eeo.veteran}
+          options={YES_NO_DECLINE}
+          onChange={(v) => set({ veteran: TriState.parse(v) })}
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Segmented
+          label="Are you Hispanic or Latino?"
+          value={eeo.hispanicLatino}
+          options={YES_NO_DECLINE}
+          onChange={(v) => set({ hispanicLatino: TriState.parse(v) })}
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Segmented
+          label="Do you identify as LGBTQ+?"
+          value={eeo.lgbtq}
+          options={YES_NO_DECLINE}
+          onChange={(v) => set({ lgbtq: TriState.parse(v) })}
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Select
+          label="Gender"
+          value={eeo.gender}
+          options={GENDERS}
+          onChange={(v) => set({ gender: v })}
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Select
+          label="Race or ethnicity"
+          value={eeo.race}
+          options={RACES}
+          onChange={(v) => set({ race: v })}
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Select
+          label="Sexual orientation"
+          value={eeo.sexualOrientation}
+          options={ORIENTATIONS}
+          onChange={(v) => set({ sexualOrientation: v })}
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Select
+          label="Pronouns"
+          value={eeo.pronouns}
+          options={PRONOUNS}
+          onChange={(v) => set({ pronouns: v })}
+        />
+      </div>
+
     </>
   )
 }

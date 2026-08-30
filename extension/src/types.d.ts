@@ -14,3 +14,12 @@ declare module "data-text:*" {
   const value: string
   export default value
 }
+
+/**
+ * Vite's `?raw` suffix, used by the dev harness to inline a captured fixture.
+ * Harness only; the shipped extension never imports HTML.
+ */
+declare module "*.html?raw" {
+  const value: string
+  export default value
+}

@@ -33,7 +33,7 @@ export const ANSWER_PROMPTS = [
   },
   {
     id: "additional-info",
-    label: "Additional information",
+    label: "Additional Information",
     placeholder: "Anything else worth knowing.",
     hint: "Matches the catch-all box at the end of most applications."
   }

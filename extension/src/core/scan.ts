@@ -175,7 +175,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
     // never even becomes a FieldSpec. See PRD non-negotiables 1 and 2.
     if (isForbidden(el)) continue
 
-    const kind = kindOf(el)
+    const kind = adapter?.kind?.(el) ?? kindOf(el)
     if (!kind) continue
 
     if (el instanceof HTMLInputElement || el instanceof HTMLSelectElement || el instanceof HTMLTextAreaElement) {

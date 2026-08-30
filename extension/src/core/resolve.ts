@@ -97,6 +97,17 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
     case "preferences.desiredSalary":
       return text(profile.preferences.desiredSalary, "desired salary")
 
+    /**
+     * The disclosure toggle in front of the preferred-name boxes.
+     *
+     * Ticking it is what makes those boxes exist, so it is answered from
+     * whether there is a preferred name to put in them. Unlike the others
+     * here it is never null: no preferred name saved means the honest answer
+     * is no, not "unanswered".
+     */
+    case "personal.hasPreferredName":
+      return { kind: "boolean", value: invert ? !profile.personal.hasPreferredName : profile.personal.hasPreferredName }
+
     case "eeo.authorizedUS":
     case "eeo.requiresSponsorship":
     case "preferences.willingToRelocate": {

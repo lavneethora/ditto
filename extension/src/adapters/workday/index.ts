@@ -1,35 +1,47 @@
-import type { Adapter, ProfileKey } from "~core/types"
+import { isCredentialField, isSubmitByName } from "~core/blocklist"
+import type { Adapter, FieldKind, ProfileKey } from "~core/types"
 
 /**
  * Workday.
  *
  * Hosted at `<tenant>.wd<N>.myworkdayjobs.com`, and the only one of the four
- * that gates the form behind an account. Applying is a seven-step wizard and
- * step 1 is Create Account / Sign In, so on a fresh application the first
- * thing Ditto sees is a login form it must not touch.
+ * that gates the form behind an account. Applying is a wizard whose first step
+ * is Create Account / Sign In, so on a fresh application the first thing Ditto
+ * sees is a login form it must not touch.
  *
- * Confirmed against a live tenant, captured in fixtures/workday-signin.html:
+ * Two tenants are captured, in fixtures/workday-signin.html and
+ * fixtures/workday-my-information.html, and the differences between them are
+ * why both are kept. One wizard has seven steps and the other six, so the
+ * count is per tenant and nothing may key off a position. The step name lives
+ * in the progress bar on one and not the other; the `<h3>` heading is on both.
  *
- *   1 Create Account/Sign In    5 Voluntary Disclosures
- *   2 My Information            6 Self Identify
- *   3 My Experience             7 Review
- *   4 Application Questions
- *
- * The useful identifier is `data-automation-id`. Every field is a
- * `formField-<name>` wrapper around a control whose own automation id is
- * `<name>`, which is Workday's equivalent of Ashby's `data-field-path`: exact
- * where a label is an inference, and stable across the emotion class names
- * (`css-1wl1chj`) that are regenerated every build and carry no meaning.
- *
- * Steps 2 through 7 are behind the account, so their field names are not
- * captured yet and nothing here guesses at them. FIELD_NAMES holds only what
- * has been read off a real page; the mechanism is in place and the map grows
- * when the next fixture lands.
+ * The identifier is `data-automation-id="formField-<name>"` on the wrapper,
+ * with the control repeating the name in its id. Compound fields nest with a
+ * double dash: `formField-legalName--firstName`. That is Workday's equivalent
+ * of Ashby's `data-field-path`, and it survives the emotion class names
+ * (`css-1ez0plr`) that are regenerated every build and mean nothing.
  */
 
-/** `formField-<name>` suffixes seen on a real page, mapped to profile keys. */
+/** `formField-<name>` suffixes read off real pages, mapped to profile keys. */
 const FIELD_NAMES: Record<string, ProfileKey> = {
-  email: "personal.email"
+  email: "personal.email",
+
+  "legalName--firstName": "personal.firstName",
+  "legalName--middleName": "personal.middleName",
+  "legalName--lastName": "personal.lastName",
+
+  addressLine1: "personal.addressLine1",
+  addressLine2: "personal.addressLine2",
+  city: "personal.city",
+  // Workday's name for the state box, which it labels "State" in the US and
+  // "Province" elsewhere. The name is stable where the label is not.
+  countryRegion: "personal.state",
+  postalCode: "personal.postalCode",
+  country: "personal.country",
+
+  phoneNumber: "personal.phone",
+  phoneType: "personal.phoneType",
+  countryPhoneCode: "personal.phoneCountryCode"
 }
 
 /**
@@ -42,10 +54,13 @@ const FIELD_NAMES: Record<string, ProfileKey> = {
  *
  * `click_filter` is an empty div with `role="button"` and `aria-label="Submit"`
  * layered over the real submit button, which Workday hides with `aria-hidden`
- * and `tabindex="-2"`. The blocklist already refuses both on their labels;
- * naming them here means they never reach it.
+ * and `tabindex="-2"`.
+ *
+ * `phone-sms-opt-in` is not a trap, it is a marketing consent, and it belongs
+ * in the same list for the same reason Lever's `consent[...]` boxes do:
+ * agreeing to marketing texts on someone's behalf is not autofill.
  */
-const TRAPS = new Set(["beecatcher", "click_filter"])
+const NEVER_TOUCH = new Set(["beecatcher", "click_filter", "phone-sms-opt-in"])
 
 function automationId(el: Element): string {
   return el.getAttribute("data-automation-id") ?? ""
@@ -58,6 +73,32 @@ function fieldName(el: Element): string {
 
   const wrapper = el.closest("[data-automation-id^='formField-']")
   return wrapper?.getAttribute("data-automation-id")?.slice("formField-".length) ?? ""
+}
+
+/**
+ * The bare text input that sits beside a listbox button holding its GUID.
+ *
+ * Workday renders Country, State and Phone Device Type as a
+ * `<button aria-haspopup="listbox">` showing the display value, next to an
+ * unlabelled `<input type="text">` whose value is the internal key Workday
+ * actually submits. To a scanner that input looks like an ordinary text box
+ * with no label, so Ditto would type "Texas" into a field that wants
+ * `fc77e3a1ab36487f9646d14f7242dd77`, and the form would either reject it or
+ * quietly submit a string where a key belongs.
+ *
+ * Identified structurally rather than by class name: no id, no name, and a
+ * listbox button for a sibling.
+ */
+function isShadowValueInput(el: Element): boolean {
+  if (!(el instanceof HTMLInputElement) || el.type !== "text") return false
+  if (el.id || el.name) return false
+
+  return Boolean(el.parentElement?.querySelector("button[aria-haspopup='listbox']"))
+}
+
+/** Workday's own multiselect: a search box, not a text field. */
+function isMultiselectSearch(el: Element): boolean {
+  return el.getAttribute("data-uxi-widget-type") === "selectinput"
 }
 
 export const workday: Adapter = {
@@ -81,18 +122,37 @@ export const workday: Adapter = {
   },
 
   /**
-   * Which of the seven steps is on screen.
+   * Which step is on screen.
    *
-   * The active step's `<li>` holds two labels: an `aria-live` one announcing
-   * "current step 2 of 7" and the name. Reading textContent off the list item
-   * concatenates them, so this takes the last label, which is the name.
+   * The heading, not the progress bar. One captured tenant puts the step name
+   * in `progressBarActiveStep` beside an aria-live "current step 1 of 7"; the
+   * other puts only the announcement there and no name at all. Both render the
+   * name as the `<h3>`, which is also the thing the user is looking at.
    */
   step(doc) {
-    const active = doc.querySelector("[data-automation-id='progressBarActiveStep']")
-    if (!active) return null
+    const heading = doc.querySelector("[data-automation-id='applyFlowPage'] h3")
+    return heading?.textContent?.trim() || null
+  },
 
-    const labels = active.querySelectorAll("label:not([aria-live])")
-    return labels[labels.length - 1]?.textContent?.trim() || null
+  /**
+   * The button that advances the wizard, for the user to click.
+   *
+   * Guarded, because on the last step this same footer button says "Submit".
+   * The drawer clicks whatever this returns when the user asks it to, so
+   * returning the submit control would turn Ditto's own UI into the thing
+   * non-negotiable 1 exists to prevent.
+   */
+  nextControl(doc) {
+    const button = doc.querySelector<HTMLElement>("[data-automation-id='pageFooterNextButton']")
+    if (!button) return null
+
+    // By its words, not its type. Every footer button in the wizard is a
+    // submit button by the HTML default, including the six that say "Save and
+    // Continue", so the type attribute cannot tell the last step from the
+    // others and refusing all of them leaves the user unable to advance.
+    if (isSubmitByName(button) || isCredentialField(button)) return null
+
+    return button
   },
 
   key(el): ProfileKey | null {
@@ -100,18 +160,41 @@ export const workday: Adapter = {
   },
 
   /**
-   * Refuse the whole sign-in step, and the bot traps everywhere.
+   * Correct the widgets whose markup understates them.
    *
-   * The blocklist would refuse the password on its own, but the email box
-   * beside it is an ordinary text input with `autocomplete="email"`, and Ditto
-   * holds an email address. Filling half a login form is not autofill, it is
-   * the extension typing the user's identity into an authentication screen it
-   * has no business on. Creating the account stays the user's job; Ditto picks
-   * up at step 2.
+   * The listbox buttons already scan as comboboxes on their `aria-haspopup`.
+   * The multiselect does not: its search box is a plain `<input>` with a
+   * placeholder of "Search" and no aria wiring, so it reads as a text field.
+   * Typed text there is a query, never a value, and Workday discards it on
+   * blur exactly the way Lever's typeahead does.
+   */
+  kind(el): FieldKind | null {
+    if (isMultiselectSearch(el)) return "combobox"
+    return null
+  },
+
+  /**
+   * Refuse the whole sign-in step, the bot traps, the consent box, and the
+   * hidden GUID inputs.
+   *
+   * The sign-in exclusion covers more than the password. The email box beside
+   * it is an ordinary text input with `autocomplete="email"`, and Ditto holds
+   * an email address, so nothing else would stop it typing the user's identity
+   * into an authentication screen. Creating the account stays the user's job;
+   * Ditto picks up at My Information.
    */
   ignore(el) {
-    if (TRAPS.has(automationId(el))) return true
+    if (NEVER_TOUCH.has(automationId(el))) return true
     if (el.closest("[data-automation-id='signInContent']")) return true
+    if (isShadowValueInput(el)) return true
+
+    // The pill list showing what is already chosen in a multiselect. It
+    // carries role="listbox", so a scanner reads it as a second control
+    // sitting inside the first, and it has no label of its own, so it borrows
+    // the section heading. On the phone block that produced a phantom field
+    // called "Phone" that resolved to the phone number and would have been
+    // filled twice, once into a real box and once into a display element.
+    if (el.getAttribute("data-automation-id") === "selectedItemList") return true
 
     return false
   }

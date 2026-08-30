@@ -99,7 +99,7 @@ export function PersonalSection({ profile, update }: SectionProps) {
           type="tel"
           value={p.phone}
           onChange={(v) => set({ phone: v })}
-          placeholder="832-418-0086"
+          placeholder="(555) 123-4567"
         />
       </div>
 
@@ -107,7 +107,7 @@ export function PersonalSection({ profile, update }: SectionProps) {
         label="Address line"
         value={p.addressLine1}
         onChange={(v) => set({ addressLine1: v })}
-        placeholder="707 Avenue T"
+        placeholder="123 Main Street"
       />
       <TextInput
         label="Address line 2"

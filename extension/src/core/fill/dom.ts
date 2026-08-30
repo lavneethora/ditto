@@ -1,4 +1,4 @@
-import { assertAllowed } from "../blocklist"
+import { assertAllowed, ForbiddenControlError, isCredentialField, isSubmitByName } from "../blocklist"
 
 /**
  * Low-level DOM writes.
@@ -97,13 +97,39 @@ export async function typeSequentially(
 export function safeClick(el: Element): void {
   assertAllowed(el)
 
-  // Cancel any submission this click provokes.
-  //
-  // Not paranoia: Ashby's Yes/No toggles are `type="submit"` buttons sitting
-  // inside the form, and they only fail to submit because Ashby calls
-  // preventDefault in its own handler. Relying on someone else's handler for
-  // a non-negotiable is not a guarantee. This makes it one, and it costs
-  // nothing on the radios and checkboxes that never submit anyway.
+  withSubmitGuard(el, () => (el as HTMLElement).click())
+}
+
+/**
+ * Click a control that changes the SHAPE of the form rather than its content.
+ *
+ * "Add" and "Add Another" are buttons inside the form carrying no type, which
+ * by the HTML default makes them submit buttons, so the ordinary gate refuses
+ * them and a repeatable section can never be grown. The same reasoning as
+ * nextControl applies: the type attribute cannot tell "Add Another" from
+ * "Submit", and the words can.
+ *
+ * Narrower than it looks. The words are still checked, credentials are still
+ * refused, and the click is still wrapped in the submit guard, so the worst a
+ * misjudged control can do is nothing.
+ */
+export function clickStructural(el: Element): void {
+  if (isCredentialField(el) || isSubmitByName(el)) {
+    throw new ForbiddenControlError(el)
+  }
+
+  withSubmitGuard(el, () => (el as HTMLElement).click())
+}
+
+/**
+ * Run a click with any resulting form submission cancelled.
+ *
+ * Not paranoia: Ashby's Yes/No toggles and Workday's Add buttons are all
+ * `type="submit"` inside the form, and they only fail to submit because the
+ * site calls preventDefault in its own handler. Relying on someone else's
+ * handler for a non-negotiable is not a guarantee. This makes it one.
+ */
+function withSubmitGuard(el: Element, act: () => void): void {
   const form = el.closest("form")
   const block = (event: Event) => {
     event.preventDefault()
@@ -113,7 +139,7 @@ export function safeClick(el: Element): void {
   form?.addEventListener("submit", block, true)
 
   try {
-    ;(el as HTMLElement).click()
+    act()
   } finally {
     // After the current task, so a handler that submits asynchronously in
     // direct response to this click is still caught.

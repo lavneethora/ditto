@@ -198,6 +198,63 @@ describe("field recognition", () => {
   })
 })
 
+describe("questions that merely mention a field's keyword", () => {
+  /**
+   * Found live on a Greenhouse form: "Are you open to relocation for this
+   * role?" matched work[].title on the word "role" and tried to answer it with
+   * a past job title.
+   *
+   * That case surfaced only because the dropdown had no matching option. The
+   * same bug on a text input writes a real value, verification confirms the
+   * value landed, and the panel shows a green check on a completely wrong
+   * answer. Read-back verification cannot catch this: it proves what was
+   * written landed, not that it should have been written at all.
+   */
+  const MUST_NOT_MATCH: [string, string][] = [
+    ["Are you open to relocation for this role?", "the word role"],
+    ["Why do you want to work at this company?", "the word company"],
+    ["What skills do you bring to this role?", "the words skills and role"],
+    ["What is your preferred work location?", "the word location"],
+    ["Have you previously been employed by our company?", "the word company"],
+    ["Which university did you hear about us through?", "the word university"]
+  ]
+
+  it.each(MUST_NOT_MATCH)("leaves %s unmatched despite %s", (label) => {
+    expect(match(field(label, { kind: "text" }))).toBeNull()
+  })
+
+  it("still matches the equal employment questions, which forms ask both ways", () => {
+    // These opt in with allowOnQuestion, because "Gender" and "What is your
+    // gender?" are the same field and both spellings are common.
+    const asQuestions: [string, string][] = [
+      ["Are you authorized to work in the US?", "eeo.authorizedUS"],
+      ["Will you now or in the future require sponsorship?", "eeo.requiresSponsorship"],
+      ["Do you have a disability?", "eeo.disability"],
+      ["Are you a protected veteran?", "eeo.veteran"],
+      ["What is your gender?", "eeo.gender"],
+      ["How would you identify your race?", "eeo.race"]
+    ]
+
+    for (const [label, key] of asQuestions) {
+      expect(match(field(label))?.key).toBe(key)
+    }
+  })
+
+  it("still matches plain field labels", () => {
+    const asFields: [string, string][] = [
+      ["Company", "work[].company"],
+      ["Job Title", "work[].title"],
+      ["School", "education[].school"],
+      ["Skills", "skills"],
+      ["Email Address", "personal.email"]
+    ]
+
+    for (const [label, key] of asFields) {
+      expect(match(field(label, { kind: "text" }))?.key).toBe(key)
+    }
+  })
+})
+
 describe("date disambiguation by section", () => {
   it("reads a start date inside an education block as education", () => {
     const spec = field("Start Date", { kind: "month", section: "Education 1" })

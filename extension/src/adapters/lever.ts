@@ -27,10 +27,10 @@ const RULES: MatchRule[] = [
   // Lever calls the applicant's own location "Current location". The shared
   // rule reads a bare "location" as a past job's location, which would put a
   // previous employer's city into the candidate's address.
-  { key: "personal.location", test: /^current\s+location$/, weight: 100 },
+  { key: "personal.location", test: /\bcurrent\s+location\b/, weight: 100 },
 
   // "Current company" is the present employer, which is the first work entry.
-  { key: "work[].company", test: /^current\s+company$/, weight: 100 },
+  { key: "work[].company", test: /\bcurrent\s+company\b/, weight: 100 },
 
   // Link fields are named `urls[LinkedIn]`, and the humanised fallback turns
   // that into "linkedin", already covered. These catch boards that label the
@@ -64,6 +64,8 @@ export const lever: Adapter = {
   id: "lever",
   name: "Lever",
 
+  hosts: [/(^|\\.)lever\\.co$/],
+
   detect(doc, url) {
     if (/(^|\.)lever\.co$/.test(safeHost(url))) return true
 
@@ -92,9 +94,16 @@ export const lever: Adapter = {
     const label = question.querySelector(".application-label")
     if (!label) return null
 
+    // Cloned and stripped rather than read directly, because some Lever
+    // fields nest widget chrome inside the label block itself.
+    const clone = label.cloneNode(true) as HTMLElement
+    clone
+      .querySelectorAll("input, select, textarea, button, svg, [class*='dropdown'], [aria-live]")
+      .forEach((n) => n.remove())
+
     // `.text` wraps the question on multiple-choice cards; fall back to the
     // label's own text for the plain fields.
-    const text = label.querySelector(".text")?.textContent ?? label.textContent
+    const text = clone.querySelector(".text")?.textContent ?? clone.textContent
 
     return text?.trim() || null
   },

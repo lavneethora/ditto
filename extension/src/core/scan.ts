@@ -164,6 +164,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
 
   const fields: FieldSpec[] = []
   const seenRadioGroups = new Set<string>()
+  const seenCheckboxGroups = new Set<string>()
 
   const candidates = Array.from(root.querySelectorAll(CONTROL_SELECTOR))
 
@@ -201,6 +202,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
       // The group's question is the fieldset legend or container text, not the
       // label of whichever radio happened to come first.
       const rawGroupLabel =
+        adapter?.label?.(el, doc) ??
         el.closest("fieldset")?.querySelector("legend")?.textContent ??
         resolveLabel(radios[0]?.parentElement ?? el, doc)
 
@@ -220,7 +222,42 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
       continue
     }
 
-    const rawLabel = resolveLabel(el, doc)
+    // Checkboxes sharing a name are one multi-select question, not several.
+    // Lever's "check all that apply" ships six of them, and reporting six rows
+    // for one question makes the panel read as though six things need doing.
+    if (kind === "checkbox" && el instanceof HTMLInputElement && el.name) {
+      const boxes = Array.from(
+        root.querySelectorAll<HTMLInputElement>(
+          `input[type='checkbox'][name="${CSS.escape(el.name)}"]`
+        )
+      )
+
+      if (boxes.length > 1) {
+        if (seenCheckboxGroups.has(el.name)) continue
+        seenCheckboxGroups.add(el.name)
+
+        const groupLabel = normalizeLabel(adapter?.label?.(el, doc) ?? resolveLabel(el, doc))
+
+        fields.push({
+          id: nextId("checkboxes"),
+          el,
+          kind: "multiselect",
+          label: groupLabel,
+          required: boxes.some((b) => b.required),
+          name: el.name,
+          section: resolveSection(el),
+          options: boxes.map((b) => ({
+            value: b.value,
+            label: resolveLabel(b, doc) || b.value,
+            el: b
+          }))
+        })
+
+        continue
+      }
+    }
+
+    const rawLabel = adapter?.label?.(el, doc) ?? resolveLabel(el, doc)
     const label = normalizeLabel(rawLabel)
 
     const spec: FieldSpec = {

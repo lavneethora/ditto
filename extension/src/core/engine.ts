@@ -72,7 +72,7 @@ export async function autofill({
       ? resolve(matched, field, profile)
       : resolveUnmatched(field, profile)
 
-    const attempt = fill(field, resolved)
+    const attempt = await fill(field, resolved)
     const result = verify(field, attempt, matched?.key)
 
     results.push(result)

@@ -70,6 +70,29 @@ if (typeof globalThis.DataTransfer === "undefined") {
   globalThis.DataTransfer = DataTransferShim as unknown as typeof DataTransfer
 }
 
+/* -------------------------------------------------------------- PointerEvent */
+
+/**
+ * jsdom has no PointerEvent, and the combobox driver dispatches a full
+ * pointer sequence because that is what these widgets actually listen for.
+ */
+if (typeof globalThis.PointerEvent === "undefined") {
+  class PointerEventShim extends MouseEvent {
+    pointerId: number
+    pointerType: string
+    isPrimary: boolean
+
+    constructor(type: string, init: MouseEventInit & { pointerId?: number; pointerType?: string; isPrimary?: boolean } = {}) {
+      super(type, init)
+      this.pointerId = init.pointerId ?? 1
+      this.pointerType = init.pointerType ?? "mouse"
+      this.isPrimary = init.isPrimary ?? true
+    }
+  }
+
+  globalThis.PointerEvent = PointerEventShim as unknown as typeof PointerEvent
+}
+
 /* ---------------------------------------------------------------- DragEvent */
 
 if (typeof globalThis.DragEvent === "undefined") {

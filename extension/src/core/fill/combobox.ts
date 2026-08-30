@@ -36,6 +36,19 @@ const OPEN_WAIT_MS = 60
 const MAX_WAIT_MS = 1500
 
 /**
+ * How long to wait for a search-backed menu to come back, per query and in
+ * total.
+ *
+ * A round trip to the server, not a render. The old budget was long enough
+ * for a list already in the page and not for one being fetched, so Ditto gave
+ * up while Workday was still looking the school up. The total is capped
+ * separately because a value like "Lubbock, Texas" is tried as two queries,
+ * and a field that cannot be filled must not take eight seconds to say so.
+ */
+const SEARCH_WAIT_MS = 2000
+const SEARCH_BUDGET_MS = 3500
+
+/**
  * How long to wait, in total, for a click to show up in the control.
  *
  * Generous, because confirming early is cheap and the cost of giving up too
@@ -422,9 +435,14 @@ export async function selectFromCombobox(
    * university is in Workday's data; it just has to be asked for.
    */
   if (!choice && isTextInput) {
+    const deadline = Date.now() + SEARCH_BUDGET_MS
+
     for (const query of queriesFor(wanted)) {
+      const left = deadline - Date.now()
+      if (left <= 0) break
+
       await typeSequentially(input as HTMLInputElement, query)
-      options = await waitForOptions(doc, input, MAX_WAIT_MS, stale)
+      options = await waitForOptions(doc, input, Math.min(SEARCH_WAIT_MS, left), stale)
 
       choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
       if (choice) break
@@ -460,7 +478,21 @@ export async function selectFromCombobox(
     }
   }
 
-  const committed = await commit(doc, input, choice, stale)
+  /**
+   * Whether the widget is already offering the answer as its top hit.
+   *
+   * These boxes highlight the first result as you type, and Workday's own
+   * instructions above the School field say to type the name and press Enter.
+   * When the top result is exactly what was asked for, that gesture is both
+   * what the site documents and unambiguous about which row it takes.
+   *
+   * Not otherwise: Enter takes whatever the widget has highlighted, and on a
+   * multi-select a wrong guess is not a wrong value but an extra one, sitting
+   * alongside the right one with nothing to remove it.
+   */
+  const topIsExact = options.length > 0 && canonical(options[0].label) === canonical(wanted)
+
+  const committed = await commit(doc, input, choice, stale, topIsExact, options.indexOf(choice))
 
   if (!committed) {
     // Honest failure rather than a claim the caller would have to disprove.
@@ -543,7 +575,9 @@ async function commit(
   doc: Document,
   input: HTMLElement,
   choice: FieldOption,
-  stale: ReadonlySet<Element> = new Set()
+  stale: ReadonlySet<Element> = new Set(),
+  enterFirst = false,
+  optionIndex = -1
 ): Promise<boolean> {
   // Read through relocate: committing makes these widgets re-render, and the
   // trigger Ditto is holding can be replaced by an identical one carrying the
@@ -580,6 +614,18 @@ async function commit(
   const deadline = Date.now() + COMMIT_WAIT_MS
   const budget = (share: number) => Math.min(share, Math.max(0, deadline - Date.now()))
 
+  /**
+   * Enter before the click, when the widget is already highlighting the
+   * answer. This is the gesture the site documents, and on Workday's School,
+   * Field of Study and Skills boxes it is the only one that works: the option
+   * is visible, the click lands on it, and nothing is selected.
+   */
+  if (enterFirst && input instanceof HTMLInputElement) {
+    input.focus?.()
+    pressKey(input, "Enter", 13)
+    if (await waitUntil(took, budget(900))) return closeMenu(doc, input, stale, took)
+  }
+
   const target = fresh()
   if (target) {
     pressPointer(target)
@@ -602,31 +648,28 @@ async function commit(
   }
 
   /**
-   * Enter, for the widgets whose commit gesture that is.
+   * Walk the highlight onto our option, then press Enter.
    *
-   * Workday's own instructions above its School box say to type the name and
-   * press Enter, and its Skills box behaves the same way. Clicking the option
-   * does nothing there, so each value was typed, left uncommitted, and then
-   * wiped by the next one typing over it: the user watched twelve skills go
-   * in and none stay.
+   * Enter takes whatever the widget has highlighted, which is the top hit.
+   * Pressing it blind when the top hit is somebody else does not produce a
+   * wrong value so much as an extra one: on a multi-select the unwanted entry
+   * sits alongside the right one with nothing to remove it.
+   *
+   * The position is known, because it is the option that was chosen out of the
+   * list that was read. Stepping down to it makes the gesture as specific as a
+   * click, and it is the gesture these widgets actually honour.
    */
-  if (input instanceof HTMLInputElement) {
+  if (optionIndex >= 0) {
     input.focus?.()
-    pressKey(input, "Enter", 13)
-    if (await waitUntil(took, budget(700))) return closeMenu(doc, input, stale, took)
-  }
 
-  // Keyboard commit, for lists that only accept their highlighted option.
-  //
-  // Only reached when the click genuinely did nothing, which matters: on a
-  // toggle like Workday's, ArrowDown reopens the menu, so running this after a
-  // click that had in fact worked left the dropdown hanging open over the rest
-  // of the form.
-  input.focus?.()
-  pressKey(input, "ArrowDown", 40)
-  await sleep(OPEN_WAIT_MS)
-  pressKey(input, "Enter", 13)
-  if (await waitUntil(took, budget(600))) return closeMenu(doc, input, stale, took)
+    for (let step = 0; step < optionIndex; step++) {
+      pressKey(input, "ArrowDown", 40)
+      await sleep(OPEN_WAIT_MS / 2)
+    }
+
+    pressKey(input, "Enter", 13)
+    if (await waitUntil(took, budget(900))) return closeMenu(doc, input, stale, took)
+  }
 
   // One more click, in case the first landed during a re-render.
   const retry = fresh()

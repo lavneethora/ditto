@@ -15,6 +15,18 @@ import { lever } from "./lever"
 export const ADAPTERS: Adapter[] = [greenhouse, lever]
 
 export function detectAdapter(doc: Document, url: string): Adapter | null {
+  const host = hostOf(url)
+
+  // Host first, and authoritative. Markup fingerprints are fuzzy by nature,
+  // and two of these ATS ship the same form id, so letting markup outrank the
+  // domain means one adapter can claim another's pages depending only on the
+  // order of this array.
+  if (host) {
+    for (const adapter of ADAPTERS) {
+      if (adapter.hosts?.some((pattern) => pattern.test(host))) return adapter
+    }
+  }
+
   for (const adapter of ADAPTERS) {
     try {
       if (adapter.detect(doc, url)) return adapter
@@ -25,6 +37,14 @@ export function detectAdapter(doc: Document, url: string): Adapter | null {
   }
 
   return null
+}
+
+function hostOf(url: string): string {
+  try {
+    return new URL(url).hostname
+  } catch {
+    return ""
+  }
 }
 
 export { greenhouse, lever }

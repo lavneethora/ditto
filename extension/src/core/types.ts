@@ -242,6 +242,15 @@ export interface Adapter {
    * driving it as a text input can only ever fail.
    */
   kind?(el: Element): FieldKind | null
+  /**
+   * Name a field's key outright, ahead of any label matching.
+   *
+   * For sites that publish a stable semantic identifier. Ashby tags every
+   * field wrapper with `data-field-path="_systemfield_name"` and similar,
+   * which is exact where a label is a guess, and survives a copy change that
+   * would break a pattern.
+   */
+  key?(el: Element): ProfileKey | null
   /** Controls this adapter should never touch. */
   ignore?(el: Element): boolean
   /** The control that advances a multi-step form, if there is one. */

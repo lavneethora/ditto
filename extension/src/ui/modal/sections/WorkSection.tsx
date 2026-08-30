@@ -95,14 +95,14 @@ export function WorkSection({ profile, update }: SectionProps) {
                 required
                 value={item.company}
                 onChange={(v) => patch(item.id, { company: v })}
-                placeholder="UTHealth Houston"
+                placeholder="Acme Corporation"
               />
               <TextInput
                 label="Job title"
                 required
                 value={item.title}
                 onChange={(v) => patch(item.id, { title: v })}
-                placeholder="Research Intern"
+                placeholder="Software Engineer Intern"
               />
             </div>
 
@@ -110,7 +110,7 @@ export function WorkSection({ profile, update }: SectionProps) {
               label="Location"
               value={item.location}
               onChange={(v) => patch(item.id, { location: v })}
-              placeholder="Houston, TX"
+              placeholder="Austin, TX"
             />
 
             <div className="ditto-grid ditto-grid--2">

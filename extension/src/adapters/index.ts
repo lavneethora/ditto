@@ -1,6 +1,7 @@
 import type { Adapter } from "~core/types"
 
 import { greenhouse } from "./greenhouse"
+import { lever } from "./lever"
 
 /**
  * Adapter registry.
@@ -11,7 +12,7 @@ import { greenhouse } from "./greenhouse"
  * behaviour, that behaviour is generalised into core/fill/ so every adapter
  * gets it, which is the difference between four adapters and four extensions.
  */
-export const ADAPTERS: Adapter[] = [greenhouse]
+export const ADAPTERS: Adapter[] = [greenhouse, lever]
 
 export function detectAdapter(doc: Document, url: string): Adapter | null {
   for (const adapter of ADAPTERS) {
@@ -26,4 +27,4 @@ export function detectAdapter(doc: Document, url: string): Adapter | null {
   return null
 }
 
-export { greenhouse }
+export { greenhouse, lever }

@@ -207,6 +207,16 @@ export interface Adapter {
   id: string
   /** Shown in the drawer, e.g. "Greenhouse". */
   name: string
+  /**
+   * Hostnames this ATS serves its own boards from.
+   *
+   * Checked before any markup, and authoritative: a page on jobs.lever.co is
+   * Lever whatever its HTML looks like. Markup fingerprints exist only for
+   * boards proxied behind a company domain, and they are inherently fuzzy.
+   * Lever and newer Greenhouse boards both use `form#application-form`, so
+   * without a host-first pass the answer depends on registry order.
+   */
+  hosts?: RegExp[]
   /** True when this adapter handles the current document. */
   detect(doc: Document, url: string): boolean
   /** Root to scan. Defaults to document.body when omitted. */

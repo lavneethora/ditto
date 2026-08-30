@@ -82,6 +82,26 @@ const FIELD_NAMES: Record<string, ProfileKey> = {
  */
 const NEVER_TOUCH = new Set(["beecatcher", "click_filter", "phone-sms-opt-in"])
 
+/**
+ * Entry panels inside a section.
+ *
+ * Only groups labelled by a HEADING. A panel points its `aria-labelledby` at
+ * an `<h5>` reading "Work Experience 1"; the date controls inside it are also
+ * `role="group"` with an `aria-labelledby`, pointing at a hidden value holder.
+ *
+ * Counting every nested group made one filled panel look like three, because
+ * a job has two dates in it, so a profile with three jobs got one panel and
+ * the growth stopped believing it was done.
+ */
+function countPanels(section: Element): number {
+  const doc = section.ownerDocument
+
+  return Array.from(section.querySelectorAll("[role='group'][aria-labelledby]")).filter((group) => {
+    const label = doc.getElementById(group.getAttribute("aria-labelledby") ?? "")
+    return Boolean(label?.matches("h1, h2, h3, h4, h5, h6"))
+  }).length
+}
+
 function automationId(el: Element): string {
   return el.getAttribute("data-automation-id") ?? ""
 }
@@ -179,11 +199,7 @@ export const workday: Adapter = {
       const add = group.querySelector<HTMLElement>("[data-automation-id='add-button']")
       if (!add) continue
 
-      sections.push({
-        collection,
-        present: group.querySelectorAll("[role='group'][aria-labelledby]").length,
-        add
-      })
+      sections.push({ collection, present: countPanels(group), add })
     }
 
     return sections

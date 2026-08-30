@@ -66,9 +66,41 @@ function isToggle(el: Element): boolean {
   return role === "radio" || role === "switch" || role === "checkbox"
 }
 
+/**
+ * True when the control's own words say it submits, signs in, or destroys.
+ *
+ * Deliberately ignores the `type` attribute, which the caller checks
+ * separately. Every button in a Workday wizard footer is a submit button by
+ * the HTML default and they are told apart only by what they say: six steps
+ * read "Save and Continue" and the last reads "Submit". A check that folds the
+ * type in cannot make that distinction, and refusing all of them leaves the
+ * user with no way to advance.
+ */
+export function isSubmitByName(el: Element): boolean {
+  const words = [
+    el.getAttribute("name"),
+    el.getAttribute("id"),
+    el.getAttribute("aria-label"),
+    el.getAttribute("value"),
+    el.getAttribute("data-qa"),
+    el.getAttribute("data-automation-id"),
+    (el as HTMLElement).innerText ?? el.textContent
+  ]
+    .filter(Boolean)
+    .join(" ")
+    .replace(/\s+/g, " ")
+    .trim()
+
+  const normalized = words.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim()
+
+  if (SUBMIT_EXACT.has(normalized)) return true
+
+  return SUBMIT_PATTERN.test(words)
+}
+
 /** True for anything that could submit, navigate away, or destroy data. */
 export function isSubmitControl(el: Element): boolean {
-  // Text is still checked below: a toggle labelled "Submit" is not a toggle.
+  // Words are still checked below: a toggle labelled "Submit" is not a toggle.
   const toggle = isToggle(el)
 
   if (!toggle) {
@@ -76,12 +108,11 @@ export function isSubmitControl(el: Element): boolean {
     if (el instanceof HTMLButtonElement && el.type === "submit") return true
   }
 
-  const text = textOf(el)
-  const normalized = text.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim()
+  // The type attribute is part of what a control says about itself, and an
+  // input carrying type="submit" is caught above whatever its words are.
+  if (SUBMIT_PATTERN.test(textOf(el))) return true
 
-  if (SUBMIT_EXACT.has(normalized)) return true
-
-  return SUBMIT_PATTERN.test(text)
+  return isSubmitByName(el)
 }
 
 /**

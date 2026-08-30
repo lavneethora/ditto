@@ -53,18 +53,18 @@ export function PersonalSection({ profile, update }: SectionProps) {
 
       <div className="ditto-grid ditto-grid--3">
         <TextInput
-          label="First name"
+          label="First Name"
           required
           value={p.firstName}
           onChange={(v) => set({ firstName: v })}
         />
         <TextInput
-          label="Middle name"
+          label="Middle Name"
           value={p.middleName}
           onChange={(v) => set({ middleName: v })}
         />
         <TextInput
-          label="Last name"
+          label="Last Name"
           required
           value={p.lastName}
           onChange={(v) => set({ lastName: v })}
@@ -80,17 +80,17 @@ export function PersonalSection({ profile, update }: SectionProps) {
       {p.hasPreferredName && (
         <div className="ditto-grid ditto-grid--3">
           <TextInput
-            label="Preferred first name"
+            label="Preferred First Name"
             value={p.preferredFirstName}
             onChange={(v) => set({ preferredFirstName: v })}
           />
           <TextInput
-            label="Preferred middle name"
+            label="Preferred Middle Name"
             value={p.preferredMiddleName}
             onChange={(v) => set({ preferredMiddleName: v })}
           />
           <TextInput
-            label="Preferred last name"
+            label="Preferred Last Name"
             value={p.preferredLastName}
             onChange={(v) => set({ preferredLastName: v })}
           />
@@ -98,7 +98,7 @@ export function PersonalSection({ profile, update }: SectionProps) {
       )}
 
       <TextInput
-        label="Email address"
+        label="Email Address"
         required
         type="email"
         value={p.email}
@@ -108,13 +108,13 @@ export function PersonalSection({ profile, update }: SectionProps) {
 
       <div className="ditto-grid ditto-grid--3">
         <Select
-          label="Phone type"
+          label="Phone Type"
           value={p.phoneType}
           options={PHONE_TYPES}
           onChange={(v) => set({ phoneType: v })}
         />
         <TextInput
-          label="Country code"
+          label="Country Code"
           value={p.phoneCountryCode}
           onChange={(v) => set({ phoneCountryCode: v })}
           placeholder="+1"
@@ -130,13 +130,13 @@ export function PersonalSection({ profile, update }: SectionProps) {
       </div>
 
       <TextInput
-        label="Address line"
+        label="Address Line"
         value={p.addressLine1}
         onChange={(v) => set({ addressLine1: v })}
         placeholder="123 Main Street"
       />
       <TextInput
-        label="Address line 2"
+        label="Address Line 2"
         value={p.addressLine2}
         onChange={(v) => set({ addressLine2: v })}
         placeholder="Apartment, suite, unit"
@@ -188,7 +188,7 @@ export function PersonalSection({ profile, update }: SectionProps) {
       <div className="ditto-grid ditto-grid--2">
         <TextInput label="County" value={p.county} onChange={(v) => set({ county: v })} />
         <TextInput
-          label="Postal code"
+          label="Postal Code"
           value={p.postalCode}
           onChange={(v) => set({ postalCode: v })}
         />

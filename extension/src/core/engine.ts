@@ -46,7 +46,7 @@ export function analyze(doc: Document, adapter: Adapter): {
   recognized: number
 } {
   const fields = scan(doc, adapter)
-  const recognized = fields.filter((field) => match(field, adapter.rules ?? []) !== null).length
+  const recognized = fields.filter((field) => match(field, adapter.rules ?? [], adapter.key?.bind(adapter)) !== null).length
 
   return { fields, recognized }
 }
@@ -64,7 +64,7 @@ export async function autofill({
   for (const [index, field] of fields.entries()) {
     if (shouldCancel?.()) break
 
-    const matched = match(field, adapter.rules ?? [])
+    const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
 
     // Unmatched open-text questions still get a shot at a saved answer, since
     // covering questions the rules cannot anticipate is the point of snippets.

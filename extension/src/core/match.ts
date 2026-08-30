@@ -342,9 +342,20 @@ const ALL_RULES: MatchRule[] = [
  * ones, competing on weight rather than jumping the queue, so an adapter
  * cannot accidentally shadow a high-confidence shared rule with a vague one.
  */
-export function match(field: FieldSpec, extraRules: readonly MatchRule[] = []): MatchResult | null {
+export function match(
+  field: FieldSpec,
+  extraRules: readonly MatchRule[] = [],
+  adapterKey?: (el: Element) => ProfileKey | null
+): MatchResult | null {
   const label = canonical(field.label)
   const section = sectionKind(field.section)
+
+  // A site's own semantic identifier beats everything, including autocomplete:
+  // it is exact rather than inferred.
+  const declared = adapterKey?.(field.el as Element) ?? null
+  if (declared) {
+    return { key: declared, invert: false, rule: "adapter key" }
+  }
 
   // A standard autocomplete token beats prose, and works even when the label
   // resolver came up empty.

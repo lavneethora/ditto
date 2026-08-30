@@ -56,6 +56,39 @@ export function typeInto(el: ValueElement, value: string): void {
 }
 
 /**
+ * Type a value one character at a time, with the key events a real keyboard
+ * produces.
+ *
+ * Necessary for search-as-you-type widgets. Lever's location field was tested
+ * three ways against the live page: setting the value with an `input` event
+ * did nothing, adding a single `keyup` did nothing, and only a per-character
+ * keydown/input/keyup sequence caused it to run its query and return results.
+ * Its handler is watching keystrokes, not the value.
+ *
+ * Slower than a single write, so this is reserved for controls that need it.
+ */
+export async function typeSequentially(
+  el: HTMLInputElement,
+  value: string,
+  delayMs = 12
+): Promise<void> {
+  assertAllowed(el)
+
+  el.focus?.()
+  setNativeValue(el, "")
+  el.dispatchEvent(new Event("input", { bubbles: true }))
+
+  for (const char of value) {
+    el.dispatchEvent(new KeyboardEvent("keydown", { key: char, bubbles: true }))
+    setNativeValue(el, el.value + char)
+    el.dispatchEvent(new Event("input", { bubbles: true }))
+    el.dispatchEvent(new KeyboardEvent("keyup", { key: char, bubbles: true }))
+
+    if (delayMs > 0) await new Promise((done) => setTimeout(done, delayMs))
+  }
+}
+
+/**
  * Click an element, but only after the blocklist clears it.
  *
  * The engine clicks radios, checkboxes and listbox options. It must never

@@ -204,6 +204,22 @@ export interface FillReport {
  * site needs new widget behaviour, that behaviour is generalised into
  * core/fill/ so every other adapter gets it too.
  */
+/**
+ * A section that holds a list of entries and can be grown to hold more.
+ *
+ * Workday ships Work Experience as a heading and an "Add" button with nothing
+ * behind it, so a profile with three jobs has nowhere to put any of them. The
+ * form has to be grown to fit the answer before there is anything to fill.
+ */
+export interface RepeatableSection {
+  /** Which profile collection fills it. */
+  collection: "work" | "education"
+  /** Entry panels already on the page. */
+  present: number
+  /** The control that adds one more. */
+  add: HTMLElement
+}
+
 export interface Adapter {
   id: string
   /** Shown in the drawer, e.g. "Greenhouse". */
@@ -254,6 +270,13 @@ export interface Adapter {
   key?(el: Element): ProfileKey | null
   /** Controls this adapter should never touch. */
   ignore?(el: Element): boolean
+  /**
+   * Sections that can be grown to hold more entries.
+   *
+   * Site knowledge only: which button adds a panel and how many panels are
+   * there now. How many to add is the engine's call, from the profile.
+   */
+  repeatables?(doc: Document): RepeatableSection[]
   /** The control that advances a multi-step form, if there is one. */
   nextControl?(doc: Document): HTMLElement | null
   /** Current step label for multi-step wizards. */

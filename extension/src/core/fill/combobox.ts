@@ -132,8 +132,29 @@ function findOpenMenu(
   return fresh[fresh.length - 1] ?? all[all.length - 1] ?? null
 }
 
+/**
+ * The deepest element that still describes one option.
+ *
+ * Workday nests its rows: a `role="option"` holding a `promptLeafNode`
+ * holding a `promptOption` that carries the text. Several of those match the
+ * option selectors, so one row arrives as three options, and the one Ditto
+ * picks is the outermost.
+ *
+ * That matters because clicking the outer row does not reach the leaf, while
+ * clicking the leaf bubbles up through every ancestor. Whichever of them holds
+ * the handler, pressing the innermost is the press that lands.
+ */
+function innermost(candidates: Element[]): Element[] {
+  return candidates.filter(
+    (candidate) => !candidates.some((other) => other !== candidate && candidate.contains(other))
+  )
+}
+
+/** Rows that exist to say there is nothing to choose. */
+const EMPTY_STATE = /^(?:no items?\.?|no results?.*|no matches?.*|loading.*)$/i
+
 function readOptions(menu: Element): FieldOption[] {
-  return Array.from(menu.querySelectorAll(OPTION_SELECTORS))
+  return innermost(Array.from(menu.querySelectorAll(OPTION_SELECTORS)))
     .map((el) => ({
       value: el.getAttribute("data-value") ?? (el as HTMLElement).innerText ?? el.textContent ?? "",
       label: ((el as HTMLElement).innerText ?? el.textContent ?? "").trim(),
@@ -147,6 +168,10 @@ function readOptions(menu: Element): FieldOption[] {
       const cls = option.el?.className ?? ""
       return !/no-results|loading|empty|placeholder|disabled/i.test(String(cls))
     })
+    // Workday says so in words rather than in a class name: its empty row is
+    // an ordinary `role="option"` reading "No Items." with nothing to
+    // distinguish it but the text.
+    .filter((option) => !EMPTY_STATE.test(option.label.trim()))
     // Workday's placeholder row is a real `<li role="option">` reading "Select
     // One", marked `aria-disabled`. It is the value the field already has when
     // empty, so choosing it is indistinguishable from doing nothing, and a
@@ -531,11 +556,14 @@ async function commit(
     const menu = findOpenMenu(doc, input, stale)
     if (!menu) return choice.el ?? null
 
-    const match = Array.from(menu.querySelectorAll<HTMLElement>(OPTION_SELECTORS)).find(
-      (el) => (el.innerText ?? el.textContent ?? "").trim() === choice.label
+    // Through innermost, exactly as readOptions did when the option was
+    // chosen. Without it this re-finds the outer row, whose text is the same
+    // as the leaf's, and presses the one element the handler is not on.
+    const match = innermost(Array.from(menu.querySelectorAll(OPTION_SELECTORS))).find(
+      (el) => ((el as HTMLElement).innerText ?? el.textContent ?? "").trim() === choice.label
     )
 
-    return match ?? choice.el ?? null
+    return (match as HTMLElement) ?? choice.el ?? null
   }
 
   const took = () => {

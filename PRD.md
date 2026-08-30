@@ -56,6 +56,7 @@ Match scoring, job intel, resume generation or tailoring, cover letters of any k
 1. **Ditto never submits.** No code path may click a submit control. Enforced by a blocklist in the fill layer, not by convention.
 2. **Ditto never touches credentials.** No sign-in, no account creation, no password fields. Workday requires an account; creating it stays the user's job.
 3. **Ditto never advances a page on its own.** Navigation happens only from a click the user made.
+4. **Ditto never fills a bot trap.** Workday ships a hidden input named `website` labelled "for robots only, do not enter if you're human", and layers an invisible `role="button"` overlay on its submit control. A filler that writes into every text input it finds fails the application before a person reads it, and the applicant is never told why. Traps are named in the adapter and refused by the blocklist.
 
 ---
 

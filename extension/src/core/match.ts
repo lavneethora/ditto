@@ -35,7 +35,7 @@ export interface MatchResult {
 }
 
 /** Which repeated block a field sits in, used to disambiguate shared labels. */
-type SectionKind = "education" | "work" | "eeo" | undefined
+type SectionKind = "education" | "work" | "eeo" | "phone" | undefined
 
 function sectionKind(section: string | undefined): SectionKind {
   if (!section) return undefined
@@ -44,8 +44,56 @@ function sectionKind(section: string | undefined): SectionKind {
   if (/(education|school|university|college|academic)/.test(s)) return "education"
   if (/(work|experience|employment|position|job history)/.test(s)) return "work"
   if (/(voluntary|self identify|disclosure|equal opportunity|demographic)/.test(s)) return "eeo"
+  if (/^phone/.test(s)) return "phone"
 
   return undefined
+}
+
+/**
+ * The `autocomplete` attribute, when it carries a standard token.
+ *
+ * This is the most reliable signal available and it outranks label matching,
+ * because it is a spec-defined contract rather than prose a designer wrote.
+ * Greenhouse sets it correctly (given-name, family-name, email) even on
+ * fields whose labels are ambiguous.
+ *
+ * Only known tokens are honoured. `autocomplete="off"` and bespoke values are
+ * ignored rather than guessed at.
+ */
+const AUTOCOMPLETE_KEYS: Record<string, ProfileKey> = {
+  "given-name": "personal.firstName",
+  "additional-name": "personal.middleName",
+  "family-name": "personal.lastName",
+  name: "personal.fullName",
+  email: "personal.email",
+  tel: "personal.phone",
+  "tel-national": "personal.phone",
+  "tel-country-code": "personal.phoneCountryCode",
+  "address-line1": "personal.addressLine1",
+  "address-line2": "personal.addressLine2",
+  "address-level2": "personal.city",
+  "address-level1": "personal.state",
+  "postal-code": "personal.postalCode",
+  country: "personal.country",
+  "country-name": "personal.country",
+  organization: "work[].company",
+  "organization-title": "work[].title",
+  url: "links.portfolio"
+}
+
+function byAutocomplete(field: FieldSpec): ProfileKey | null {
+  const raw = field.el.getAttribute?.("autocomplete")
+  if (!raw) return null
+
+  // Tokens can be space separated and section-prefixed, e.g.
+  // "section-primary shipping given-name". The meaningful token is last.
+  //
+  // Deliberately not run through canonical(): that strips hyphens, which
+  // turns "given-name" into "name" and silently maps a first-name field onto
+  // the full name.
+  const token = raw.trim().toLowerCase().split(/\s+/).pop() ?? ""
+
+  return AUTOCOMPLETE_KEYS[token] ?? null
 }
 
 /**
@@ -254,9 +302,20 @@ const ALL_RULES: MatchRule[] = [
  */
 export function match(field: FieldSpec, extraRules: readonly MatchRule[] = []): MatchResult | null {
   const label = canonical(field.label)
-  if (!label) return null
-
   const section = sectionKind(field.section)
+
+  // A standard autocomplete token beats prose, and works even when the label
+  // resolver came up empty.
+  const fromAutocomplete = byAutocomplete(field)
+  if (fromAutocomplete) {
+    return {
+      key: applySection(fromAutocomplete, section),
+      invert: false,
+      rule: "autocomplete"
+    }
+  }
+
+  if (!label) return null
 
   // File inputs are resumes unless labelled otherwise. Greenhouse and Lever
   // both ship file inputs whose only label is the word "Attach".
@@ -298,6 +357,15 @@ export function match(field: FieldSpec, extraRules: readonly MatchRule[] = []): 
  * unambiguous and the key is a repeatable one.
  */
 function applySection(key: ProfileKey, section: SectionKind): ProfileKey {
+  // A "Country" control inside a phone fieldset is the dialling code, not a
+  // mailing address. Greenhouse ships exactly this: a react-select labelled
+  // "Country" nested inside `<fieldset class="phone-input"><legend>Phone`.
+  // Writing a mailing country into it puts the wrong value on the form and
+  // leaves the real address country empty.
+  if (section === "phone" && (key === "personal.country" || key === "personal.state")) {
+    return "personal.phoneCountryCode"
+  }
+
   if (section === "work" && key.startsWith("education[].")) {
     const field = key.split(".")[1]
     const mapped = `work[].${field}` as ProfileKey

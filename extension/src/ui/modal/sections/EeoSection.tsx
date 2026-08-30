@@ -12,6 +12,25 @@ const GENDERS = [
   { value: "Decline to state", label: "Decline to state" }
 ] as const
 
+const ORIENTATIONS = [
+  { value: "", label: "Not answered" },
+  { value: "Heterosexual", label: "Heterosexual" },
+  { value: "Gay", label: "Gay" },
+  { value: "Lesbian", label: "Lesbian" },
+  { value: "Bisexual", label: "Bisexual" },
+  { value: "Asexual", label: "Asexual" },
+  { value: "Queer", label: "Queer" },
+  { value: "Decline to state", label: "Decline to state" }
+] as const
+
+const PRONOUNS = [
+  { value: "", label: "Not answered" },
+  { value: "He/Him", label: "He/Him" },
+  { value: "She/Her", label: "She/Her" },
+  { value: "They/Them", label: "They/Them" },
+  { value: "Decline to state", label: "Decline to state" }
+] as const
+
 const RACES = [
   { value: "", label: "Not answered" },
   { value: "American Indian or Alaska Native", label: "American Indian or Alaska Native" },
@@ -144,6 +163,45 @@ export function EeoSection({ profile, update }: SectionProps) {
           value={eeo.hispanicLatino}
           options={YES_NO_DECLINE}
           onChange={(v) => set({ hispanicLatino: TriState.parse(v) })}
+        />
+      </DemographicQuestion>
+
+      <DemographicQuestion
+        label="Do you identify as LGBTQ+?"
+        optKey="lgbtq"
+        optedOut={isOptedOut("lgbtq")}
+        onOptOut={toggleOptOut}>
+        <Segmented
+          label="Do you identify as LGBTQ+?"
+          value={eeo.lgbtq}
+          options={YES_NO_DECLINE}
+          onChange={(v) => set({ lgbtq: TriState.parse(v) })}
+        />
+      </DemographicQuestion>
+
+      <DemographicQuestion
+        label="How would you describe your sexual orientation?"
+        optKey="sexualOrientation"
+        optedOut={isOptedOut("sexualOrientation")}
+        onOptOut={toggleOptOut}>
+        <Select
+          label="How would you describe your sexual orientation?"
+          value={eeo.sexualOrientation}
+          options={ORIENTATIONS}
+          onChange={(v) => set({ sexualOrientation: v })}
+        />
+      </DemographicQuestion>
+
+      <DemographicQuestion
+        label="What are your pronouns?"
+        optKey="pronouns"
+        optedOut={isOptedOut("pronouns")}
+        onOptOut={toggleOptOut}>
+        <Select
+          label="What are your pronouns?"
+          value={eeo.pronouns}
+          options={PRONOUNS}
+          onChange={(v) => set({ pronouns: v })}
         />
       </DemographicQuestion>
     </>

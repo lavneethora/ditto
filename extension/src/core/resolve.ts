@@ -231,6 +231,15 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
       return text(nth(profile.work, index)?.title, "job title")
     case "work[].location":
       return text(nth(profile.work, index)?.location, "location")
+    /**
+     * "I currently work here", which is stored per entry rather than as one
+     * profile-wide fact, so it is answered from the entry this field sits in.
+     */
+    case "work[].current": {
+      const entry = nth(profile.work, index)
+      return { kind: "boolean", value: invert ? !entry?.current : Boolean(entry?.current) }
+    }
+
     case "work[].summary":
       return text(nth(profile.work, index)?.summary, "experience summary")
     case "work[].startDate":

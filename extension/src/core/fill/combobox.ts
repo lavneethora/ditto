@@ -1,6 +1,6 @@
 import { canonical } from "../label"
 import type { FieldOption } from "../types"
-import { fireInput, safeClick, setNativeValue } from "./dom"
+import { fireInput, safeClick, setNativeValue, typeSequentially } from "./dom"
 import { pickText } from "./options"
 
 /**
@@ -56,6 +56,9 @@ const OPTION_SELECTORS = [
   "[role='option']",
   ".select__option",
   "[class*='__option']",
+  // Lever's place results, captured live: each is
+  // <div class="break-word dropdown-location ..." id="location-0">.
+  "[class*='dropdown-location']",
   "[class*='dropdown-result']:not([class*='results'])",
   "[data-automation-id='promptOption']",
   "li"
@@ -103,8 +106,12 @@ function readOptions(menu: Element): FieldOption[] {
 }
 
 /** Poll for options, since the menu populates a frame or two after opening. */
-async function waitForOptions(doc: Document, control: Element): Promise<FieldOption[]> {
-  const deadline = Date.now() + MAX_WAIT_MS
+async function waitForOptions(
+  doc: Document,
+  control: Element,
+  budgetMs: number = MAX_WAIT_MS
+): Promise<FieldOption[]> {
+  const deadline = Date.now() + budgetMs
 
   while (Date.now() < deadline) {
     const menu = findOpenMenu(doc, control)
@@ -174,50 +181,84 @@ export async function selectFromCombobox(
 ): Promise<ComboboxResult> {
   const isTextInput = input instanceof HTMLInputElement
 
+  // Phase one: get the menu open. Cheap, and repeated across handles because
+  // widgets disagree about which element and which gesture opens them.
+  let opened = false
+
   for (const handle of openHandles(input)) {
     pressPointer(handle)
     await sleep(OPEN_WAIT_MS)
 
-    // Some widgets only open on a keyboard gesture.
-    if (!findOpenMenu(doc, input)) {
-      input.focus?.()
-      pressKey(input, "ArrowDown", 40)
-      await sleep(OPEN_WAIT_MS)
+    if (findOpenMenu(doc, input)) {
+      opened = true
+      break
     }
 
-    // Typing narrows a long list. A country dropdown renders 200 options and
-    // the wanted one is often virtualized out of the DOM until filtered.
-    if (isTextInput) {
-      setNativeValue(input as HTMLInputElement, wanted)
-      fireInput(input)
-      await sleep(OPEN_WAIT_MS * 2)
-    }
-
-    const options = await waitForOptions(doc, input)
-    if (options.length === 0) continue
-
-    const choice = pickText(options, wanted) ?? exactish(options, wanted)
-    if (!choice?.el) {
-      return {
-        ok: false,
-        reason: `Opened the dropdown but found no option matching "${wanted}"`
-      }
-    }
-
-    // Options usually commit on mousedown, not click.
-    pressPointer(choice.el)
+    input.focus?.()
+    pressKey(input, "ArrowDown", 40)
     await sleep(OPEN_WAIT_MS)
 
-    // Enter as a fallback for widgets that commit the highlighted option.
     if (findOpenMenu(doc, input)) {
-      pressKey(input, "Enter", 13)
-      await sleep(OPEN_WAIT_MS)
+      opened = true
+      break
     }
-
-    return { ok: true, value: choice.label }
   }
 
-  return { ok: false, reason: "Could not open the dropdown" }
+  if (!opened) return { ok: false, reason: "Could not open the dropdown" }
+
+  // Phase two: read the options, typing to filter only if the open menu is
+  // empty. Typing is done at most once per query and never once per handle:
+  // a per-character type plus a network wait is expensive, and repeating it
+  // for every candidate handle made a field that could not be filled take ten
+  // seconds to say so.
+  let options = await waitForOptions(doc, input, OPEN_WAIT_MS * 4)
+
+  if (options.length === 0 && isTextInput) {
+    for (const query of queriesFor(wanted)) {
+      await typeSequentially(input as HTMLInputElement, query)
+      options = await waitForOptions(doc, input, MAX_WAIT_MS)
+      if (options.length > 0) break
+    }
+  }
+
+  if (options.length === 0) {
+    return { ok: false, reason: "The dropdown opened but returned no results" }
+  }
+
+  const choice = pickText(options, wanted) ?? exactish(options, wanted)
+
+  if (!choice?.el) {
+    return { ok: false, reason: `Opened the dropdown but found no option matching "${wanted}"` }
+  }
+
+  // Options usually commit on mousedown, not click.
+  pressPointer(choice.el)
+  await sleep(OPEN_WAIT_MS)
+
+  // Enter as a fallback for widgets that commit the highlighted option.
+  if (findOpenMenu(doc, input)) {
+    pressKey(input, "Enter", 13)
+    await sleep(OPEN_WAIT_MS)
+  }
+
+  return { ok: true, value: choice.label }
+}
+
+/**
+ * The strings worth typing to make a menu show the wanted value.
+ *
+ * A place typeahead queries literally, so "Lubbock, Texas" returns nothing
+ * while "Lubbock" returns "Lubbock, TX, USA". Trying the full value first
+ * keeps exact-match widgets working; falling back to the leading segment is
+ * what makes a search-backed one return anything at all.
+ */
+function queriesFor(wanted: string): string[] {
+  const queries = [wanted]
+
+  const head = wanted.split(",")[0]?.trim()
+  if (head && head !== wanted) queries.push(head)
+
+  return queries
 }
 
 /** Last-resort match for options whose text carries extra decoration. */

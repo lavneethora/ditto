@@ -1,3 +1,4 @@
+import { readComboboxValue } from "./fill/combobox"
 import { canonical } from "./label"
 import type { AttemptOutcome, FieldSpec, FillResult, ProfileKey } from "./types"
 
@@ -55,8 +56,10 @@ function readBack(field: FieldSpec): string | null {
 
     case "combobox":
     case "multiselect": {
-      const input = el as HTMLInputElement
-      return input.value || (el as HTMLElement).innerText || null
+      // react-select clears its text input after committing and mirrors the
+      // chosen value onto the container, so reading input.value here would
+      // see an empty box and call a successful selection a failure.
+      return readComboboxValue(el as HTMLElement) || null
     }
   }
 }

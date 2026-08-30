@@ -1,6 +1,7 @@
 import type { Profile } from "~profile/schema"
 
 import { fill } from "./fill"
+import { clickStructural } from "./fill/dom"
 import { match } from "./match"
 import { buildReport } from "./report"
 import { resolve, resolveUnmatched } from "./resolve"
@@ -35,6 +36,87 @@ function yieldToBrowser(): Promise<void> {
 }
 
 /**
+ * The most panels Ditto will add to one section.
+ *
+ * A guard against a profile with a long history turning an application into a
+ * wall of entries, and against an Add button that does not actually add
+ * anything turning the loop into a click storm.
+ */
+const MAX_ADDED_ENTRIES = 8
+
+/** How long to wait for a panel to appear after pressing Add. */
+const PANEL_WAIT_MS = 1200
+
+/** An entry the user has actually filled in, rather than an empty row. */
+function hasContent(entry: Record<string, unknown>): boolean {
+  return Object.entries(entry).some(
+    ([field, value]) => field !== "id" && typeof value === "string" && value.trim().length > 0
+  )
+}
+
+/**
+ * Grow the repeatable sections to fit the profile, before filling anything.
+ *
+ * Workday's Work Experience is a heading and an "Add" button with no fields
+ * behind it, so without this a profile with three jobs has nowhere to put any
+ * of them, and the step reports 100% having filled none of the history the
+ * user came to enter.
+ *
+ * Runs before the scan rather than as another reveal pass, so the panels exist
+ * by the time fields are collected and each one is filled and reported like
+ * any other.
+ */
+async function growSections(
+  doc: Document,
+  adapter: Adapter,
+  profile: Profile
+): Promise<void> {
+  for (const collection of ["work", "education"] as const) {
+    const wanted = (collection === "work" ? profile.work : profile.education).filter((entry) =>
+      hasContent(entry as unknown as Record<string, unknown>)
+    ).length
+
+    for (let added = 0; added < MAX_ADDED_ENTRIES; added++) {
+      // Re-read every time rather than caching the button and the count.
+      // Adding a panel re-renders the section, which replaces the Add button
+      // with an identical one, and the reference from the previous iteration
+      // is then detached and clicking it does nothing. Re-reading also makes
+      // the panel count self-correcting if a press adds more than one.
+      const section = adapter.repeatables?.(doc)?.find((s) => s.collection === collection)
+      if (!section || section.present >= wanted) break
+
+      const before = panelCount(doc)
+
+      try {
+        clickStructural(section.add)
+      } catch {
+        // A blocked Add button is not a reason to abandon the whole run. The
+        // section stays short, and its fields are reported as needing the user.
+        break
+      }
+
+      // Stop if pressing Add produced nothing, rather than pressing again.
+      if (!(await waitForGrowth(doc, before))) break
+    }
+  }
+}
+
+function panelCount(doc: Document): number {
+  return doc.querySelectorAll("[role='group'][aria-labelledby]").length
+}
+
+async function waitForGrowth(doc: Document, before: number): Promise<boolean> {
+  const deadline = Date.now() + PANEL_WAIT_MS
+
+  while (Date.now() < deadline) {
+    if (panelCount(doc) > before) return true
+    await new Promise((done) => setTimeout(done, 60))
+  }
+
+  return false
+}
+
+/**
  * Scan without filling.
  *
  * Backs the drawer's "30 fields found, 17 Ditto recognises" line, and is what
@@ -58,6 +140,10 @@ export async function autofill({
   onProgress,
   shouldCancel
 }: AutofillOptions): Promise<FillReport> {
+  // Make room before looking, so a panel added here is scanned, filled and
+  // reported exactly like one the page shipped with.
+  await growSections(doc, adapter, profile)
+
   const results: FillResult[] = []
 
   /**

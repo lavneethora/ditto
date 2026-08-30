@@ -32,7 +32,10 @@ const OPT_OUT_KEYS: Partial<Record<ProfileKey, string>> = {
   "eeo.veteran": "veteran",
   "eeo.gender": "gender",
   "eeo.race": "race",
-  "eeo.hispanicLatino": "hispanicLatino"
+  "eeo.hispanicLatino": "hispanicLatino",
+  "eeo.lgbtq": "lgbtq",
+  "eeo.sexualOrientation": "sexualOrientation",
+  "eeo.pronouns": "pronouns"
 }
 
 function text(value: string | undefined | null, label: string): Resolved {
@@ -101,14 +104,9 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
     // --- Booleans. The only place `invert` is applied. ----------------------
 
     case "eeo.authorizedUS":
-    case "eeo.requiresSponsorship":
-    case "preferences.willingToRelocate": {
+    case "eeo.requiresSponsorship": {
       const stored =
-        key === "eeo.authorizedUS"
-          ? profile.eeo.authorizedUS
-          : key === "eeo.requiresSponsorship"
-            ? profile.eeo.requiresSponsorship
-            : profile.preferences.willingToRelocate
+        key === "eeo.authorizedUS" ? profile.eeo.authorizedUS : profile.eeo.requiresSponsorship
 
       if (stored === null) {
         return { kind: "none", reason: "Not answered in your profile" }
@@ -134,11 +132,22 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
         ? { kind: "tristate", value: profile.eeo.hispanicLatino }
         : { kind: "none", reason: "Not answered in your profile" }
 
+    case "eeo.lgbtq":
+      return profile.eeo.lgbtq
+        ? { kind: "tristate", value: profile.eeo.lgbtq }
+        : { kind: "none", reason: "Not answered in your profile" }
+
     case "eeo.gender":
       return text(profile.eeo.gender, "gender")
 
     case "eeo.race":
       return text(profile.eeo.race, "race or ethnicity")
+
+    case "eeo.sexualOrientation":
+      return text(profile.eeo.sexualOrientation, "sexual orientation")
+
+    case "eeo.pronouns":
+      return text(profile.eeo.pronouns, "pronouns")
 
     // --- Personal -----------------------------------------------------------
 
@@ -170,19 +179,18 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
       return text(p.city, "city")
     case "personal.state":
       return text(p.state, "state")
+    case "personal.county":
+      return text(p.county, "county")
     case "personal.postalCode":
       return text(p.postalCode, "postal code")
     case "personal.country":
       return text(p.country, "country")
-
-    // --- Links --------------------------------------------------------------
-
-    case "links.linkedin":
-      return text(profile.links.linkedin, "LinkedIn URL")
-    case "links.github":
-      return text(profile.links.github, "GitHub URL")
-    case "links.portfolio":
-      return text(profile.links.portfolio, "portfolio URL")
+    case "personal.linkedin":
+      return text(p.linkedin, "LinkedIn URL")
+    case "personal.github":
+      return text(p.github, "GitHub URL")
+    case "personal.website":
+      return text(p.website, "website URL")
 
     // --- Education ----------------------------------------------------------
 
@@ -231,12 +239,6 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
         ? { kind: "file", value: profile.resume }
         : { kind: "none", reason: "No resume uploaded" }
 
-    case "preferences.desiredSalary":
-      return text(profile.preferences.desiredSalary, "desired salary")
-    case "preferences.earliestStartDate":
-      return text(profile.preferences.earliestStartDate, "earliest start date")
-    case "preferences.howDidYouHear":
-      return text(profile.preferences.howDidYouHear, "answer for how you heard about them")
 
     case "answers":
       return matchSavedAnswer(profile, field.label)

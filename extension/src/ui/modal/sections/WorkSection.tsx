@@ -3,6 +3,58 @@ import { Card, Checkbox, Empty, MonthInput, TextArea, TextInput } from "~ui/comp
 import { removeById, replaceById, type SectionProps } from "../shared"
 
 /**
+ * Bulleted job description, kept separate from the paragraph summary.
+ *
+ * The two serve different form shapes: Workday wants prose in one box, while a
+ * resume-style textarea wants lines. Deriving one from the other loses
+ * information in both directions, so both are stored.
+ */
+function Bullets({
+  values,
+  onChange
+}: {
+  values: string[]
+  onChange: (values: string[]) => void
+}) {
+  return (
+    <div className="ditto-field">
+      <span className="ditto-label">Job description</span>
+
+      {values.map((bullet, index) => (
+        <div key={index} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
+          <span style={{ paddingTop: 10, color: "var(--ditto-text-muted)" }}>&bull;</span>
+          <textarea
+            className="ditto-textarea"
+            style={{ minHeight: 52 }}
+            value={bullet}
+            placeholder="What you did and what changed because of it."
+            onChange={(e) =>
+              onChange(values.map((v, i) => (i === index ? e.target.value : v)))
+            }
+          />
+          <button
+            type="button"
+            className="ditto-icon-btn"
+            aria-label="Remove bullet"
+            onClick={() => onChange(values.filter((_, i) => i !== index))}>
+            &times;
+          </button>
+        </div>
+      ))}
+
+      <div>
+        <button
+          type="button"
+          className="ditto-btn ditto-btn--ghost"
+          onClick={() => onChange([...values, ""])}>
+          + Add bullet point
+        </button>
+      </div>
+    </div>
+  )
+}
+
+/**
  * Work history, repeatable.
  *
  * The end date is disabled rather than hidden when "I currently work here" is
@@ -83,11 +135,17 @@ export function WorkSection({ profile, update }: SectionProps) {
             />
 
             <TextArea
-              label="Summary"
+              label="Experience summary"
               value={item.summary}
               onChange={(v) => patch(item.id, { summary: v })}
               placeholder="What you built and what it changed."
-              hint="Some forms paste this into a description box. Keep it a few lines."
+              hint="Used when a form wants a single paragraph."
+              rows={3}
+            />
+
+            <Bullets
+              values={item.bullets}
+              onChange={(bullets) => patch(item.id, { bullets })}
             />
           </div>
         </Card>

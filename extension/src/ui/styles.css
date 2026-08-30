@@ -775,10 +775,30 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  /*
+   * Reserve the scrollbar gutter always.
+   *
+   * Without this the panel has no scrollbar until a fill produces results,
+   * then gains one, and every child reflows ~15px narrower at the exact
+   * moment the user clicks Autofill. It reads as the button changing shape.
+   */
+  scrollbar-gutter: stable;
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+/*
+ * Nothing in the panel may be compressed to make room.
+ *
+ * The body is a flex column, and flex items shrink by default. Once a fill
+ * produced enough results to overflow, the Autofill button was squeezed from
+ * its 52px down to 40px, which is what "it changes the shape of that box"
+ * was. The body scrolls; its children keep their size.
+ */
+.ditto-drawer-body > * {
+  flex-shrink: 0;
 }
 
 .ditto-drawer-foot {
@@ -887,10 +907,13 @@
 }
 
 .ditto-row-detail {
+  /* Block, or the reason runs straight on from the label with no break:
+     "...25% of the time?Ditto does not recognise this field". */
+  display: block;
   font-weight: 400;
   color: var(--ditto-text-muted);
   font-size: 12px;
-  margin-top: 1px;
+  margin-top: 2px;
   overflow-wrap: anywhere;
 }
 

@@ -1,4 +1,4 @@
-import type { Adapter, MatchRule } from "~core/types"
+import type { Adapter, FieldKind, MatchRule } from "~core/types"
 
 /**
  * Lever.
@@ -106,6 +106,22 @@ export const lever: Adapter = {
     const text = clone.querySelector(".text")?.textContent ?? clone.textContent
 
     return text?.trim() || null
+  },
+
+  /**
+   * The location field is a typeahead wearing a text input's clothes.
+   *
+   * Nothing in its markup says so: no role, no aria-haspopup. But the value
+   * Lever submits is the hidden `selectedLocation` beside it, which is only
+   * set by choosing from the dropdown. Typed text is wiped on blur, which is
+   * why filling it as text reported writing a value and then reading back an
+   * empty field.
+   */
+  kind(el): FieldKind | null {
+    if (el.id === "location-input" || el.classList.contains("location-input")) {
+      return "combobox"
+    }
+    return null
   },
 
   rules: RULES,

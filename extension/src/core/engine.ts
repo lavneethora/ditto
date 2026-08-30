@@ -58,30 +58,58 @@ export async function autofill({
   onProgress,
   shouldCancel
 }: AutofillOptions): Promise<FillReport> {
-  const fields = scan(doc, adapter)
   const results: FillResult[] = []
 
-  for (const [index, field] of fields.entries()) {
+  // Identity by element, because field ids are assigned per scan and a second
+  // scan would renumber everything it already did.
+  const handled = new Set<Element>()
+
+  let queue = scan(doc, adapter)
+  let total = queue.length
+
+  /**
+   * Passes, because answering one field can create another.
+   *
+   * Workday hides the preferred-name boxes behind an "I have a preferred name"
+   * checkbox, so on a single pass Ditto ticks the box and then finishes,
+   * leaving the two fields it just revealed empty and unreported. The same
+   * shape turns up wherever a form asks a follow-up: a sponsorship question
+   * that opens a date box, a "previously employed here" that asks when.
+   *
+   * Bounded at two. One extra pass covers a follow-up; anything deeper is a
+   * form that rewrites itself as you fill it, and looping until the DOM
+   * settles risks not stopping at all.
+   */
+  for (let pass = 0; pass < 2 && queue.length > 0; pass++) {
+    for (const field of queue) {
+      if (shouldCancel?.()) break
+
+      handled.add(field.el as Element)
+
+      const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
+
+      // Unmatched open-text questions still get a shot at a saved answer, since
+      // covering questions the rules cannot anticipate is the point of snippets.
+      const resolved = matched
+        ? resolve(matched, field, profile)
+        : resolveUnmatched(field, profile)
+
+      const attempt = await fill(field, resolved)
+      const result = verify(field, attempt, matched?.key)
+
+      results.push(result)
+      onProgress?.(results.length, total, result)
+
+      // Only yield after a write. Skipped fields touched nothing, so there is
+      // nothing for React to commit and no reason to pay for a frame.
+      if (attempt.kind === "wrote") await yieldToBrowser()
+    }
+
     if (shouldCancel?.()) break
 
-    const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
-
-    // Unmatched open-text questions still get a shot at a saved answer, since
-    // covering questions the rules cannot anticipate is the point of snippets.
-    const resolved = matched
-      ? resolve(matched, field, profile)
-      : resolveUnmatched(field, profile)
-
-    const attempt = await fill(field, resolved)
-    const result = verify(field, attempt, matched?.key)
-
-    results.push(result)
-    onProgress?.(index + 1, fields.length, result)
-
-    // Only yield after a write. Skipped fields touched nothing, so there is
-    // nothing for React to commit and no reason to pay for a frame.
-    if (attempt.kind === "wrote") await yieldToBrowser()
+    queue = scan(doc, adapter).filter((field) => !handled.has(field.el as Element))
+    total += queue.length
   }
 
-  return buildReport({ ats: adapter.name, results, fieldsFound: fields.length })
+  return buildReport({ ats: adapter.name, results, fieldsFound: total })
 }

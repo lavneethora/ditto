@@ -94,12 +94,16 @@ describe("the wizard", () => {
 })
 
 describe("the sections that can be grown", () => {
-  it("claims work experience and education, and nothing else", () => {
-    // Certifications, Languages and Websites also have Add buttons, and Ditto
-    // has nothing to put in them, so it does not touch them.
+  it("claims the three it has answers for, and nothing else", () => {
+    // Certifications and Languages also have Add buttons, and Ditto has
+    // nothing to put in them, so it does not touch them.
     const sections = workday.repeatables?.(document) ?? []
 
-    expect(sections.map((s) => s.collection).sort()).toEqual(["education", "work"])
+    expect(sections.map((s) => s.collection).sort()).toEqual([
+      "education",
+      "websites",
+      "work"
+    ])
   })
 
   it("counts the panels each section already has", () => {

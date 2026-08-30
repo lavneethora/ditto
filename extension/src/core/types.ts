@@ -78,6 +78,7 @@ export const PROFILE_KEYS = [
   "personal.city",
   "personal.state",
   "personal.county",
+  "personal.location",
   "personal.postalCode",
   "personal.country",
   "personal.linkedin",
@@ -212,6 +213,15 @@ export interface Adapter {
   root?(doc: Document): HTMLElement | null
   /** Extra rules merged ahead of the shared matcher rules. */
   rules?: MatchRule[]
+  /**
+   * Site-specific label resolution, tried before the shared strategies.
+   *
+   * Needed where a site's markup defeats the generic ones. Lever wraps each
+   * radio option in its own `<label>`, so resolving a group's question from a
+   * radio yields "Yes" instead of the question; the question lives on a
+   * sibling element only Lever knows about. Return null to fall through.
+   */
+  label?(el: Element, doc: Document): string | null
   /** Controls this adapter should never touch. */
   ignore?(el: Element): boolean
   /** The control that advances a multi-step form, if there is one. */

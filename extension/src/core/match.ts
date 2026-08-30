@@ -22,8 +22,7 @@ import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 /** Keys whose stored value is a boolean, and therefore invertible. */
 export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
   "eeo.authorizedUS",
-  "eeo.requiresSponsorship",
-  "preferences.willingToRelocate"
+  "eeo.requiresSponsorship"
 ])
 
 export interface MatchResult {
@@ -78,7 +77,7 @@ const AUTOCOMPLETE_KEYS: Record<string, ProfileKey> = {
   "country-name": "personal.country",
   organization: "work[].company",
   "organization-title": "work[].title",
-  url: "links.portfolio"
+  url: "personal.website"
 }
 
 function byAutocomplete(field: FieldSpec): ProfileKey | null {
@@ -151,6 +150,9 @@ const RULES: MatchRule[] = [
   { key: "eeo.hispanicLatino", test: /\bhispanic\b|\blatino\b|\blatinx\b/, weight: 90 },
   { key: "eeo.disability", test: /\bdisabilit(?:y|ies)\b|\bdisabled\b/, weight: 90 },
   { key: "eeo.veteran", test: /\bveteran\b|\bmilitary\s+service\b|\bprotected\s+veteran\b/, weight: 90 },
+  { key: "eeo.pronouns", test: /\bpronouns?\b/, weight: 100 },
+  { key: "eeo.sexualOrientation", test: /\bsexual\s+orientation\b/, weight: 100 },
+  { key: "eeo.lgbtq", test: /\blgbtq?\+?\b|\bqueer\b/, weight: 95 },
   { key: "eeo.gender", test: /\bgender\b|\bsex\b/, weight: 80 },
   { key: "eeo.race", test: /\brace\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+group\b/, weight: 80 },
 
@@ -190,10 +192,10 @@ const RULES: MatchRule[] = [
 
   // --- Links ----------------------------------------------------------------
 
-  { key: "links.linkedin", test: /\blinked\s?in\b/, weight: 100 },
-  { key: "links.github", test: /\bgit\s?hub\b/, weight: 100 },
+  { key: "personal.linkedin", test: /\blinked\s?in\b/, weight: 100 },
+  { key: "personal.github", test: /\bgit\s?hub\b/, weight: 100 },
   {
-    key: "links.portfolio",
+    key: "personal.website",
     test: /\bportfolio\b|\bpersonal\s+(?:web)?site\b|\bwebsite\b|\bweb\s+address\b|\bblog\b|^url$/,
     weight: 70
   },
@@ -227,18 +229,7 @@ const RULES: MatchRule[] = [
   // --- Everything else ------------------------------------------------------
 
   { key: "skills", test: /\bskills?\b|\btechnolog(?:y|ies)\b|\bcompetenc(?:y|ies)\b/, weight: 80 },
-  { key: "resume", test: /\bresume\b|\bcv\b|\bcurriculum\s+vitae\b/, weight: 90 },
-  {
-    key: "preferences.howDidYouHear",
-    test: /\bhow\s+did\s+you\s+hear\b|\bhow\s+did\s+you\s+find\b|\breferral\s+source\b|\bsource\b/,
-    weight: 90
-  },
-  {
-    key: "preferences.desiredSalary",
-    test: /\bsalary\b|\bcompensation\b|\bdesired\s+pay\b|\bpay\s+expectation\b/,
-    weight: 85
-  },
-  { key: "preferences.willingToRelocate", test: /\brelocat/, invert: false, weight: 90 }
+  { key: "resume", test: /\bresume\b|\bcv\b|\bcurriculum\s+vitae\b/, weight: 90 }
 ]
 
 /**
@@ -262,13 +253,9 @@ const DATE_RULES: Record<"education" | "work" | "default", MatchRule[]> = {
     { key: "work[].startDate", test: /\bstart\b|\bfrom\b/, weight: 80 },
     { key: "work[].endDate", test: /\bend\b|\bto\b|\bthrough\b/, weight: 80 }
   ],
-  default: [
-    {
-      key: "preferences.earliestStartDate",
-      test: /\b(?:earliest\s+)?start\s+date\b|\bavailab|\bwhen\s+can\s+you\s+start\b|\bnotice\s+period\b/,
-      weight: 80
-    }
-  ]
+  // With the Preference section gone there is no stored availability date, so
+  // a bare "when can you start" question has no key and lands in NEEDS YOU.
+  default: []
 }
 
 /**

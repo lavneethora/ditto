@@ -45,15 +45,29 @@ export function buildReport({
 }
 
 /**
- * The drawer groups errors under NEEDS YOU, because from the user's side both
- * mean "this one is still on you". They stay separate in the data so the
- * percentage cannot be inflated and so a failure is still identifiable as a
- * failure rather than a choice.
+ * Everything still on the user, in one list.
+ *
+ * Errors, unanswered questions and skipped fields are three different things
+ * to Ditto and one thing to the person filling the form: an empty field they
+ * have to deal with. Splitting them across two lists meant an optional
+ * question Ditto had no answer for sat under a "Skipped" heading that reads
+ * as "handled", when it is not.
+ *
+ * The four states stay distinct in the data, so the percentage still counts
+ * only verified fills, and each row keeps its own mark so the reason is still
+ * visible. Only the grouping changed.
  */
 export function actionableItems(report: FillReport): FillResult[] {
-  return [...report.errors, ...report.needsYou].sort((a, b) => {
+  return [...report.errors, ...report.needsYou, ...report.skipped].sort((a, b) => {
+    // Required first, then errors ahead of the rest: a field Ditto tried and
+    // failed on is more likely to need a workaround than one it never had an
+    // answer for.
     if (a.required !== b.required) return a.required ? -1 : 1
-    return 0
+
+    const rank = (result: FillResult) =>
+      result.status === "error" ? 0 : result.status === "needs_you" ? 1 : 2
+
+    return rank(a) - rank(b)
   })
 }
 

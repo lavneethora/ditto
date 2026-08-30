@@ -92,3 +92,28 @@ describe("the wizard", () => {
     expect(next?.getAttribute("data-automation-id")).toBe("pageFooterNextButton")
   })
 })
+
+describe("the sections that can be grown", () => {
+  it("claims work experience and education, and nothing else", () => {
+    // Certifications, Languages and Websites also have Add buttons, and Ditto
+    // has nothing to put in them, so it does not touch them.
+    const sections = workday.repeatables?.(document) ?? []
+
+    expect(sections.map((s) => s.collection).sort()).toEqual(["education", "work"])
+  })
+
+  it("counts the panels each section already has", () => {
+    const sections = workday.repeatables?.(document) ?? []
+    const by = (name: string) => sections.find((s) => s.collection === name)!
+
+    // Work Experience ships nothing; Education ships one panel.
+    expect(by("work").present).toBe(0)
+    expect(by("education").present).toBe(1)
+  })
+
+  it("points at an Add button, not the footer", () => {
+    for (const section of workday.repeatables?.(document) ?? []) {
+      expect(section.add.getAttribute("data-automation-id")).toBe("add-button")
+    }
+  })
+})

@@ -1,6 +1,6 @@
 import { canonical } from "../label"
 import type { FieldOption } from "../types"
-import { fireInput, relocate, safeClick, setNativeValue, typeSequentially } from "./dom"
+import { fireInput, relocate, safeClick, setNativeValue, typeSequentially, withSubmitGuard } from "./dom"
 import { pickText } from "./options"
 
 /**
@@ -227,12 +227,29 @@ function pressPointer(el: Element): void {
   el.dispatchEvent(new MouseEvent("click", options))
 }
 
+/**
+ * Press a key, with any resulting form submission cancelled.
+ *
+ * Enter in a text input is the browser's implicit submit gesture, and these
+ * widgets are inside the application form. Committing a dropdown must never be
+ * able to send the application, so the press goes through the same guard as a
+ * click. See PRD non-negotiable 1.
+ */
 function pressKey(el: Element, key: string, keyCode: number): void {
-  for (const type of ["keydown", "keyup"] as const) {
-    el.dispatchEvent(
-      new KeyboardEvent(type, { key, code: key, keyCode, which: keyCode, bubbles: true, cancelable: true })
-    )
-  }
+  withSubmitGuard(el, () => {
+    for (const type of ["keydown", "keyup"] as const) {
+      el.dispatchEvent(
+        new KeyboardEvent(type, {
+          key,
+          code: key,
+          keyCode,
+          which: keyCode,
+          bubbles: true,
+          cancelable: true
+        })
+      )
+    }
+  })
 }
 
 /**
@@ -456,10 +473,37 @@ async function commit(
   const target = fresh()
   if (target) {
     pressPointer(target)
-    // The click is the strategy that normally works, so it gets most of the
-    // budget; the fallbacks exist for widgets that ignore clicks outright,
-    // and those do not become true by being waited on longer.
-    if (await waitUntil(took, budget(2000))) return closeMenu(doc, input, stale, took)
+
+    /**
+     * A long wait for a button, a short one for a search box.
+     *
+     * The two seconds are for Workday's listbox buttons, where choosing a
+     * Country sends it off to fetch the State list before the trigger
+     * repaints. A search box that commits on Enter never repaints from a
+     * click at all, so waiting the same two seconds only delays the strategy
+     * that works, once per value: on a dozen skills that is half a minute of
+     * watching nothing happen.
+     *
+     * Still click-first for both, because a click lands on the option Ditto
+     * chose, while Enter takes whichever the widget has highlighted.
+     */
+    const clickBudget = input instanceof HTMLInputElement ? 700 : 2000
+    if (await waitUntil(took, budget(clickBudget))) return closeMenu(doc, input, stale, took)
+  }
+
+  /**
+   * Enter, for the widgets whose commit gesture that is.
+   *
+   * Workday's own instructions above its School box say to type the name and
+   * press Enter, and its Skills box behaves the same way. Clicking the option
+   * does nothing there, so each value was typed, left uncommitted, and then
+   * wiped by the next one typing over it: the user watched twelve skills go
+   * in and none stay.
+   */
+  if (input instanceof HTMLInputElement) {
+    input.focus?.()
+    pressKey(input, "Enter", 13)
+    if (await waitUntil(took, budget(700))) return closeMenu(doc, input, stale, took)
   }
 
   // Keyboard commit, for lists that only accept their highlighted option.

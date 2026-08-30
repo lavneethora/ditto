@@ -127,14 +127,7 @@ export const EeoSchema = z.object({
   hispanicLatino: TriState.nullable().default(null),
   lgbtq: TriState.nullable().default(null),
   sexualOrientation: z.string().default(""),
-  pronouns: z.string().default(""),
-
-  /**
-   * Question keys the user has opted out of. Anything listed here is reported
-   * as SKIPPED, never guessed and never left to a default. Demographic
-   * questions are voluntary and Ditto treats them that way.
-   */
-  neverFill: z.array(z.string()).default([])
+  pronouns: z.string().default("")
 })
 export type Eeo = z.infer<typeof EeoSchema>
 

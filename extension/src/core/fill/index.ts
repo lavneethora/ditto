@@ -2,7 +2,7 @@ import { resumeToFile } from "~profile/resume"
 
 import type { AttemptOutcome, FieldSpec } from "../types"
 import type { Resolved } from "../resolve"
-import { selectFromCombobox } from "./combobox"
+import { holdsValue, readComboboxValue, selectFromCombobox } from "./combobox"
 import {
   attachFiles,
   dropFiles,
@@ -102,8 +102,22 @@ async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOut
 
   for (const value of wanted) {
     const outcome = await selectFromCombobox(el, value)
-    if (outcome.ok) added.push(outcome.value ?? value)
-    else refused.push(value)
+
+    /**
+     * Judged by the control, not by the attempt.
+     *
+     * Several gestures can land the value, and on a box where Enter runs the
+     * search the search itself sometimes commits what was typed. The attempt
+     * then reports failure over an entry that is sitting right there, and the
+     * next value types over a box that already did its job. Asking the
+     * control what it holds is both simpler and the same standard the report
+     * is held to.
+     */
+    if (outcome.ok || holdsValue(readComboboxValue(el), value)) {
+      added.push(outcome.value ?? value)
+    } else {
+      refused.push(value)
+    }
   }
 
   if (added.length === 0) {

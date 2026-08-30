@@ -43,6 +43,16 @@ const FIELD_NAMES: Record<string, ProfileKey> = {
   postalCode: "personal.postalCode",
   country: "personal.country",
 
+  jobTitle: "work[].title",
+  companyName: "work[].company",
+  location: "work[].location",
+  roleDescription: "work[].summary",
+  currentlyWorkHere: "work[].current",
+  // Both blocks use these names. applySection rewrites the education key to
+  // the work one inside a work panel, so one mapping serves both.
+  startDate: "education[].startDate",
+  endDate: "education[].endDate",
+
   school: "education[].school",
   degree: "education[].degree",
   // Workday's "Field of Study" is the profile's major.
@@ -76,13 +86,24 @@ function automationId(el: Element): string {
   return el.getAttribute("data-automation-id") ?? ""
 }
 
-/** The `<name>` half of the enclosing `formField-<name>` wrapper. */
+/**
+ * The `<name>` half of the enclosing `formField-<name>` wrapper.
+ *
+ * The wrapper is asked first. A composite control has an automation id of its
+ * own that names the WIDGET rather than the field: a date group is
+ * `dateInputWrapper` whichever date it holds, so reading its own id first
+ * meant From and To were indistinguishable and neither matched anything.
+ *
+ * Falls back to the element's own id for the resume, whose wrapper is
+ * `formField-` with nothing after it.
+ */
 function fieldName(el: Element): string {
-  const own = automationId(el)
-  if (own && !own.startsWith("formField-")) return own
-
   const wrapper = el.closest("[data-automation-id^='formField-']")
-  return wrapper?.getAttribute("data-automation-id")?.slice("formField-".length) ?? ""
+  const fromWrapper = wrapper?.getAttribute("data-automation-id")?.slice("formField-".length) ?? ""
+  if (fromWrapper) return fromWrapper
+
+  const own = automationId(el)
+  return own.startsWith("formField-") ? own.slice("formField-".length) : own
 }
 
 /**

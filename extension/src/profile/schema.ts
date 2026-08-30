@@ -247,6 +247,9 @@ export function isSectionComplete(profile: Profile, section: SectionId): boolean
       return e.authorizedUS !== null && e.requiresSponsorship !== null
     }
     case "answers":
-      return profile.answers.some((a) => a.label && a.body)
+      // Optional by design: these questions are worth answering once, but an
+      // application is perfectly fillable without them. Marking the section
+      // incomplete would nag about something that is not missing.
+      return true
   }
 }

@@ -136,6 +136,24 @@ export interface MatchRule {
   invert?: boolean
   /** Higher wins when several rules match. Defaults to rule order. */
   weight?: number
+  /**
+   * Whether this rule may match an interrogative label.
+   *
+   * Off by default, and that default is the safety property. Most rules
+   * describe a labelled data field ("Company", "Job Title", "School"), and a
+   * question that merely mentions the same word is a different thing
+   * entirely: "Are you open to relocation for this role?" is not a job title,
+   * and "Why do you want to work at this company?" is not an employer name.
+   *
+   * Matching those writes a real, verifiable, completely wrong value into the
+   * form, which read-back verification cannot catch: it only proves what was
+   * written landed, not that it should have been written.
+   *
+   * Rules about questions the user genuinely has a stored answer to, chiefly
+   * the equal employment ones, opt in. Forms ask those both ways ("Gender"
+   * and "What is your gender?"), so they have to work in both shapes.
+   */
+  allowOnQuestion?: boolean
 }
 
 /** What a fill function is allowed to report. Note the absence of `filled`. */

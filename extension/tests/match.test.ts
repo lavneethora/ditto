@@ -211,7 +211,6 @@ describe("questions that merely mention a field's keyword", () => {
    * written landed, not that it should have been written at all.
    */
   const MUST_NOT_MATCH: [string, string][] = [
-    ["Are you open to relocation for this role?", "the word role"],
     ["Why do you want to work at this company?", "the word company"],
     ["What skills do you bring to this role?", "the words skills and role"],
     ["What is your preferred work location?", "the word location"],
@@ -221,6 +220,28 @@ describe("questions that merely mention a field's keyword", () => {
 
   it.each(MUST_NOT_MATCH)("leaves %s unmatched despite %s", (label) => {
     expect(match(field(label, { kind: "text" }))).toBeNull()
+  })
+
+  it("reads the relocation question as relocation, not as a job title", () => {
+    // The original report: this matched work[].title on the word "role" and
+    // tried to answer it with a past job title. It now has a rule of its own,
+    // and the job-title rule can no longer reach a question at all.
+    const matched = match(field("Are you open to relocation for this role?"))
+
+    expect(matched?.key).toBe("preferences.willingToRelocate")
+    expect(matched?.key).not.toBe("work[].title")
+  })
+
+  it("answers the relocation question in whichever shape the form uses", () => {
+    // One stored Yes/No serves both: an option list gets the matching option,
+    // a free-text box gets the word.
+    const profile = emptyProfile()
+    profile.preferences.willingToRelocate = true
+
+    for (const kind of ["radiogroup", "text", "select"] as const) {
+      const spec = field("Are you open to relocation for this role?", { kind })
+      expect(resolve(match(spec)!, spec, profile)).toEqual({ kind: "boolean", value: true })
+    }
   })
 
   it("still matches the equal employment questions, which forms ask both ways", () => {

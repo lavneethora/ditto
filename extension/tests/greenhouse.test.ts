@@ -35,8 +35,11 @@ beforeEach(() => {
 })
 
 describe("detection", () => {
-  it("recognizes the board by its form markup", () => {
-    expect(greenhouse.detect(document, "https://example.com/careers")).toBe(true)
+  it("does not claim a page by the shared form id alone", () => {
+    // Lever's form is also id="application-form". Fingerprinting on that made
+    // Greenhouse claim every Lever page and then fail to fill it, so markup
+    // detection now requires a marker that is actually Greenhouse's own.
+    expect(greenhouse.detect(document, "https://example.com/careers")).toBe(false)
   })
 
   it("recognizes a greenhouse.io URL", () => {

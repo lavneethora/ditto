@@ -208,6 +208,18 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
     case "personal.website":
       return text(p.website, "website URL")
 
+    /**
+     * The nth link, for a section that asks for URLs without saying which.
+     *
+     * Ordered the way the profile lists them, so panel one gets LinkedIn.
+     * Running out of links is nothing on file rather than a failure: a form
+     * offering four boxes to someone with two links is not broken.
+     */
+    case "personal.link": {
+      const links = [p.linkedin, p.github, p.website].filter((link) => link.trim().length > 0)
+      return text(links[index ?? 0], "link")
+    }
+
     // --- Education ----------------------------------------------------------
 
     case "education[].school":

@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { ADAPTERS } from "~adapters"
-import { assertAllowed, isCredentialField, isForbidden, isSubmitControl } from "~core/blocklist"
+import { assertAllowed, isCredentialField, isForbidden, isSubmitByName, isSubmitControl } from "~core/blocklist"
 import { typeInto, safeClick } from "~core/fill/dom"
 import { scan } from "~core/scan"
 
@@ -144,5 +144,50 @@ describe("no adapter can route a submit control into the filler", () => {
       expect(fields.some((f) => isSubmitControl(f.el))).toBe(false)
       expect(fields.some((f) => isCredentialField(f.el))).toBe(false)
     }
+  })
+})
+
+describe("telling a wizard's Next button from its Submit button", () => {
+  /**
+   * Workday leaves every footer button at the HTML default of type=submit and
+   * distinguishes them only by what they say: six steps read "Save and
+   * Continue" and the last reads "Submit". A check that folds the type in
+   * cannot tell them apart, so it either refuses all of them, leaving the user
+   * unable to advance, or allows all of them, which submits the application.
+   */
+
+  const button = (text: string, attrs: Record<string, string> = {}) => {
+    const el = document.createElement("button")
+    el.textContent = text
+    for (const [name, value] of Object.entries(attrs)) el.setAttribute(name, value)
+    return el
+  }
+
+  it("reads Save and Continue as a navigation, by its words", () => {
+    const next = button("Save and Continue", { "data-automation-id": "pageFooterNextButton" })
+
+    expect(isSubmitByName(next)).toBe(false)
+    // And still refused by the full check, which sees the implicit submit
+    // type. Only nextControl, driven by a click the user made, uses the
+    // by-name check.
+    expect(isSubmitControl(next)).toBe(true)
+  })
+
+  it("reads Submit as a submit whatever else it carries", () => {
+    expect(isSubmitByName(button("Submit"))).toBe(true)
+    expect(isSubmitByName(button("Submit Application"))).toBe(true)
+  })
+
+  it("is not fooled by a type attribute into calling Next a submit", () => {
+    // The old check joined the type attribute into the same string it pattern
+    // matched, so type="submit" put the word "submit" in the haystack and
+    // every button in the wizard came back forbidden.
+    expect(isSubmitByName(button("Save and Continue", { type: "submit" }))).toBe(false)
+  })
+
+  it("still refuses the words that mean sign in or destroy", () => {
+    expect(isSubmitByName(button("Create Account"))).toBe(true)
+    expect(isSubmitByName(button("Sign In"))).toBe(true)
+    expect(isSubmitByName(button("Withdraw Application"))).toBe(true)
   })
 })

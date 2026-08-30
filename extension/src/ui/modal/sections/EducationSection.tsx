@@ -71,12 +71,12 @@ export function EducationSection({ profile, update }: SectionProps) {
 
             <div className="ditto-grid ditto-grid--2">
               <MonthInput
-                label="Start date"
+                label="Start Date"
                 value={item.startDate}
                 onChange={(v) => patch(item.id, { startDate: v })}
               />
               <MonthInput
-                label={item.current ? "Expected graduation" : "End date"}
+                label={item.current ? "Expected Graduation" : "End Date"}
                 value={item.endDate}
                 onChange={(v) => patch(item.id, { endDate: v })}
               />

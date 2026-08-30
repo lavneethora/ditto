@@ -99,6 +99,7 @@ export const PROFILE_KEYS = [
   "work[].startDate",
   "work[].endDate",
   "work[].summary",
+  "work[].current",
 
   "skills",
 

@@ -104,6 +104,10 @@ export function TextArea({
         value={value}
         rows={rows}
         placeholder={placeholder}
+        // The stylesheet sets a min-height for the default size, which would
+        // otherwise override `rows` entirely and make every textarea the same
+        // height no matter what was asked for.
+        style={{ minHeight: rows * 21 + 20 }}
         onChange={(e) => onChange(e.target.value)}
       />
     </Field>

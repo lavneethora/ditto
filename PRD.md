@@ -71,7 +71,7 @@ A right-side panel injected into the page DOM by a content script, collapsible t
 6. **Results**, grouped and counted:
    - **NEEDS YOU**: recognised, but Ditto will not answer for you (open text with no matching saved answer), or it tried and failed.
    - **FILLED**: verified by reading the value back out of the DOM, showing what was written.
-   - **SKIPPED**: recognised and deliberately left alone (a disabled demographic question, or no data on file).
+   - **SKIPPED**: recognised and deliberately left alone (a voluntary question left unanswered, or no data on file).
 7. **Continue to the next page.** For multi-step forms. Clicks the site's own next control and rescans. Pressed by the user, never automatic.
 8. **Your Autofill Information** opens the profile modal.
 9. **Upload Resume** shows the stored filename.
@@ -84,16 +84,22 @@ Centered modal. Left section nav with a dot marking incomplete sections, right p
 
 | Section | Fields |
 | --- | --- |
-| Personal | first / middle / last name, preferred first / middle / last, email, phone type, phone with country code, address lines 1 and 2, city, state, postal code, country |
-| Links | LinkedIn, GitHub, portfolio, other |
+| Personal | first / middle / last name, preferred names, email, phone type, phone with country code, address lines 1 and 2, country, state, city, county, postal code, LinkedIn / GitHub / website URLs |
 | Education | repeatable: school, degree, major, GPA, start, end, currently studying |
-| Work Experience | repeatable: company, title, location, start, end, currently working, summary |
+| Work Experience | repeatable: company, title, location, start, end, currently working, summary, bulleted job description |
 | Skills | chips with removal, plus an add input |
-| Equal Employment | US work authorization, sponsorship requirement, disability, veteran, gender, race. Each supports "decline to state", and each can be individually set to never fill |
-| Preferences | desired salary, earliest start date, willing to relocate, preferred locations, how did you hear about us |
+| Equal Employment | US work authorization, sponsorship requirement, disability, veteran, gender, race, Hispanic/Latino, LGBTQ+, sexual orientation, pronouns. Each supports "decline to state" as a real answer; leaving one unanswered makes Ditto skip it |
 | Answers | reusable saved snippets keyed by question type ("why this company", "additional information") |
 
-Jobright's "Sign-up Information" section is meaningless without an account, so **Links** replaces it.
+Six sections, matching Jobright's minus the two that do not apply. Its
+"Sign-up Information" is meaningless without an account, and its "Preference"
+section serves job matching, which Ditto does not do. Links live inside
+Personal, where Jobright puts them and where a form asks for them.
+
+One consequence, accepted deliberately: with no Preference section there is no
+stored answer for "How did you hear about us?" or "When can you start?", both
+of which are common and sometimes required. They land in NEEDS YOU every time
+rather than being guessed at.
 
 **Learn from corrections.** A toggle, on by default: when the user fixes a value directly in an application form, Ditto writes the correction back to the profile.
 
@@ -129,11 +135,17 @@ Collapsing them makes the progress bar lie in the expensive direction: a field D
 
 `FillResult.status` is `filled | needs_you | skipped | error`. Only `filled` counts toward the bar.
 
+There is deliberately no standing "never fill this" opt-out for the voluntary
+questions. It was tried and removed: it duplicated what leaving a question
+unanswered already does, and worse, these questions are required on some forms
+and optional on others, so a standing refusal would silently leave a required
+field blank on a form the user believed was ready to send.
+
 ---
 
 ## 6. Architecture
 
-Plasmo, React 19, TypeScript, Zod. Same toolchain as RaiderRating. Visual language from the poke.com design system: warm off-white background, black text at varying opacity, layered inset shadows rather than borders.
+Plasmo, React 19, TypeScript, Zod. Same toolchain as RaiderRating. Solid white ground with neutral greys, black text at varying opacity, and the logo's blue (`#1830F0`) for the primary action and selection states. Green is reserved for one thing only: a verified fill.
 
 ```
 extension/src/

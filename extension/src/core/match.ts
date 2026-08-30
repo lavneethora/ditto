@@ -22,7 +22,8 @@ import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 /** Keys whose stored value is a boolean, and therefore invertible. */
 export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
   "eeo.authorizedUS",
-  "eeo.requiresSponsorship"
+  "eeo.requiresSponsorship",
+  "preferences.willingToRelocate"
 ])
 
 export interface MatchResult {
@@ -250,7 +251,40 @@ const RULES: MatchRule[] = [
   // --- Everything else ------------------------------------------------------
 
   { key: "skills", test: /\bskills?\b|\btechnolog(?:y|ies)\b|\bcompetenc(?:y|ies)\b/, weight: 80 },
-  { key: "resume", test: /\bresume\b|\bcv\b|\bcurriculum\s+vitae\b/, weight: 90 }
+  { key: "resume", test: /\bresume\b|\bcv\b|\bcurriculum\s+vitae\b/, weight: 90 },
+
+  // --- Preferences ----------------------------------------------------------
+  //
+  // All three opt in on questions, because that is how forms ask them:
+  // "Are you open to relocation?", "How did you hear about us?", "What are
+  // your salary expectations?".
+
+  {
+    key: "preferences.willingToRelocate",
+    allowOnQuestion: true,
+    test: /\b(?:open|willing|able|prepared|comfortable)\b[^.?]{0,25}\brelocat/,
+    invert: false,
+    weight: 95
+  },
+  {
+    key: "preferences.willingToRelocate",
+    allowOnQuestion: true,
+    test: /\b(?:would|can|will)\s+you\s+(?:be\s+)?(?:willing\s+to\s+)?relocat/,
+    invert: false,
+    weight: 90
+  },
+  {
+    key: "preferences.howDidYouHear",
+    allowOnQuestion: true,
+    test: /\bhow\s+did\s+you\s+(?:hear|find|learn)\b|\breferral\s+source\b|\bhow\s+were\s+you\s+referred\b/,
+    weight: 90
+  },
+  {
+    key: "preferences.desiredSalary",
+    allowOnQuestion: true,
+    test: /\bsalary\b|\bcompensation\b|\bdesired\s+pay\b|\bpay\s+expectation/,
+    weight: 85
+  }
 ]
 
 /**

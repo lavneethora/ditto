@@ -63,23 +63,18 @@ export const PersonalSchema = z.object({
   addressLine2: z.string().default(""),
   city: z.string().default(""),
   state: z.string().default(""),
+  county: z.string().default(""),
   postalCode: z.string().default(""),
-  country: z.string().default("United States of America")
-})
-export type Personal = z.infer<typeof PersonalSchema>
+  country: z.string().default("United States of America"),
 
-/**
- * Replaces Jobright's "Sign-up Information" section, which only exists because
- * Jobright has accounts. Ditto has none, but the links themselves are asked
- * for on nearly every application.
- */
-export const LinksSchema = z.object({
+  // Links live in Personal rather than a section of their own, which is where
+  // Jobright puts them and where an application form asks for them: right
+  // after the address, as part of "who are you and where do we find you".
   linkedin: z.string().default(""),
   github: z.string().default(""),
-  portfolio: z.string().default(""),
-  other: z.array(z.string()).default([])
+  website: z.string().default("")
 })
-export type Links = z.infer<typeof LinksSchema>
+export type Personal = z.infer<typeof PersonalSchema>
 
 export const EducationSchema = z.object({
   id: z.string(),
@@ -101,7 +96,15 @@ export const WorkSchema = z.object({
   startDate: monthString.default(""),
   endDate: monthString.default(""),
   current: z.boolean().default(false),
-  summary: z.string().default("")
+  /** One free-text paragraph, for forms with a single description box. */
+  summary: z.string().default(""),
+  /**
+   * Bullets, kept separate from `summary` because they serve different form
+   * shapes: Workday wants a paragraph, while a resume-style textarea wants
+   * lines. Storing one and deriving the other loses information in both
+   * directions.
+   */
+  bullets: z.array(z.string()).default([])
 })
 export type Work = z.infer<typeof WorkSchema>
 
@@ -122,6 +125,9 @@ export const EeoSchema = z.object({
   gender: z.string().default(""),
   race: z.string().default(""),
   hispanicLatino: TriState.nullable().default(null),
+  lgbtq: TriState.nullable().default(null),
+  sexualOrientation: z.string().default(""),
+  pronouns: z.string().default(""),
 
   /**
    * Question keys the user has opted out of. Anything listed here is reported
@@ -131,16 +137,6 @@ export const EeoSchema = z.object({
   neverFill: z.array(z.string()).default([])
 })
 export type Eeo = z.infer<typeof EeoSchema>
-
-export const PreferencesSchema = z.object({
-  desiredSalary: z.string().default(""),
-  earliestStartDate: dateString.default(""),
-  willingToRelocate: z.boolean().nullable().default(null),
-  locations: z.array(z.string()).default([]),
-  /** "LinkedIn", "Referral", "Company website", and so on. */
-  howDidYouHear: z.string().default("")
-})
-export type Preferences = z.infer<typeof PreferencesSchema>
 
 /**
  * Reusable saved answers for the open-text questions every application asks
@@ -185,12 +181,10 @@ export type Settings = z.infer<typeof SettingsSchema>
 export const ProfileSchema = z.object({
   version: z.literal(1).default(1),
   personal: PersonalSchema.default({}),
-  links: LinksSchema.default({}),
   education: z.array(EducationSchema).default([]),
   work: z.array(WorkSchema).default([]),
   skills: z.array(z.string()).default([]),
   eeo: EeoSchema.default({}),
-  preferences: PreferencesSchema.default({}),
   answers: z.array(AnswerSchema).default([]),
   resume: ResumeSchema.nullable().default(null),
   settings: SettingsSchema.default({})
@@ -200,24 +194,20 @@ export type Profile = z.infer<typeof ProfileSchema>
 /** The eight sections of the profile modal, in nav order. */
 export const SECTIONS = [
   "personal",
-  "links",
   "education",
   "work",
   "skills",
   "eeo",
-  "preferences",
   "answers"
 ] as const
 export type SectionId = (typeof SECTIONS)[number]
 
 export const SECTION_LABELS: Record<SectionId, string> = {
   personal: "Personal",
-  links: "Links",
   education: "Education",
   work: "Work Experience",
-  skills: "Skills",
+  skills: "Skill",
   eeo: "Equal Employment",
-  preferences: "Preferences",
   answers: "Answers"
 }
 
@@ -253,8 +243,6 @@ export function isSectionComplete(profile: Profile, section: SectionId): boolean
       const p = profile.personal
       return Boolean(p.firstName && p.lastName && p.email && p.phone)
     }
-    case "links":
-      return Boolean(profile.links.linkedin || profile.links.github || profile.links.portfolio)
     case "education":
       return profile.education.some((e) => e.school && e.degree)
     case "work":
@@ -265,8 +253,6 @@ export function isSectionComplete(profile: Profile, section: SectionId): boolean
       const e = profile.eeo
       return e.authorizedUS !== null && e.requiresSponsorship !== null
     }
-    case "preferences":
-      return Boolean(profile.preferences.howDidYouHear)
     case "answers":
       return profile.answers.some((a) => a.label && a.body)
   }

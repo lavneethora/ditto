@@ -286,7 +286,11 @@ export function resolveSection(el: Element): string | undefined {
         if (text) return text
       }
 
-      const nested = sibling.querySelectorAll(HEADING)
+      // Not legends. A `<legend>` scopes to its own fieldset, so one found
+      // inside a PRECEDING SIBLING is that sibling's label, not this field's
+      // section. Workday puts each date in its own fieldset, and without this
+      // the To date reported its section as "From".
+      const nested = sibling.querySelectorAll("h1, h2, h3, h4, h5, h6, [role='heading']")
       const last = nested[nested.length - 1]
       if (last) {
         const text = ownText(last)

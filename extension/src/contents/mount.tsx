@@ -1,6 +1,6 @@
 import cssText from "data-text:~ui/styles.css"
-import type { PlasmoCSConfig, PlasmoGetStyle } from "plasmo"
-import { useEffect, useState } from "react"
+import type { PlasmoCSConfig, PlasmoGetOverlayAnchor, PlasmoGetStyle } from "plasmo"
+import { useEffect, useRef, useState } from "react"
 
 import { detectAdapter } from "~adapters"
 import type { Adapter } from "~core/types"
@@ -40,6 +40,25 @@ export const getStyle: PlasmoGetStyle = () => {
   return style
 }
 
+/**
+ * Required, even though the drawer positions itself.
+ *
+ * Plasmo's CSUI runtime starts its mount loop only when at least one anchor
+ * getter is exported:
+ *
+ *   const shouldObserve = hasInlineAnchor || hasOverlayAnchor || ...
+ *   if (!shouldObserve) return null
+ *
+ * With none exported it bails before rendering anything, so the content script
+ * loads, runs, throws nothing, and silently does nothing at all. That is a
+ * miserable failure to diagnose, because every other signal looks healthy.
+ *
+ * Anchoring to document.body puts the shadow host on <html> with an absolutely
+ * positioned container. The drawer inside is `position: fixed`, so it ignores
+ * that container and pins to the viewport regardless.
+ */
+export const getOverlayAnchor: PlasmoGetOverlayAnchor = async () => document.body
+
 const isTopFrame = () => {
   try {
     return window.top === window.self
@@ -69,6 +88,7 @@ function shouldMount(adapter: Adapter | null): boolean {
 function Mount() {
   const [adapter, setAdapter] = useState<Adapter | null>(null)
   const [ready, setReady] = useState(false)
+  const redetect = useRef(0)
 
   useEffect(() => {
     // These are single-page apps: the application form frequently is not in
@@ -76,17 +96,25 @@ function Mount() {
     // wizard steps without navigating. Re-detect until something appears, then
     // keep watching.
     const detect = () => {
-      const found = detectAdapter(document, location.href)
-      setAdapter(found)
+      setAdapter(detectAdapter(document, location.href))
       setReady(true)
     }
 
     detect()
 
-    const observer = new MutationObserver(detect)
+    // Debounced, because these pages mutate on a loop of their own and an
+    // undebounced detector runs a querySelector sweep on every one.
+    const observer = new MutationObserver(() => {
+      window.clearTimeout(redetect.current)
+      redetect.current = window.setTimeout(detect, 300)
+    })
+
     observer.observe(document.documentElement, { childList: true, subtree: true })
 
-    return () => observer.disconnect()
+    return () => {
+      window.clearTimeout(redetect.current)
+      observer.disconnect()
+    }
   }, [])
 
   if (!ready || !shouldMount(adapter) || !adapter) return null

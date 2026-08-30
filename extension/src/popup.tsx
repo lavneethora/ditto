@@ -41,7 +41,7 @@ function Popup() {
   return (
     <div className="ditto-root" style={{ width: 320, padding: 16, background: "var(--ditto-bg)" }}>
       <header style={{ marginBottom: 14 }}>
-        <Wordmark size={24} />
+        <Wordmark size={21} />
       </header>
 
       {loading || !profile ? (

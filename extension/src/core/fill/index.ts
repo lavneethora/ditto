@@ -76,6 +76,21 @@ function asChoice(resolved: Resolved): string | boolean | null {
   }
 }
 
+/** The dropdown path, shared by comboboxes and multi-selects. */
+async function fillCombobox(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {
+  const choice = asChoice(resolved)
+  if (choice === null) return { kind: "error", reason: "Nothing sensible to select here" }
+
+  const wanted = typeof choice === "boolean" ? (choice ? "Yes" : "No") : String(choice)
+  const outcome = await selectFromCombobox(field.el as HTMLElement, wanted)
+
+  if (!outcome.ok) {
+    return { kind: "error", reason: outcome.reason ?? "Could not set this dropdown" }
+  }
+
+  return { kind: "wrote", value: outcome.value ?? wanted }
+}
+
 export async function fill(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {
   // Non-value outcomes pass straight through to the report.
   if (resolved.kind === "none") {
@@ -165,8 +180,34 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
         return { kind: "wrote", value: resolved.value.filename }
       }
 
-      case "combobox":
       case "multiselect": {
+        // A group of checkboxes is ticked, not opened. Routing it through the
+        // dropdown driver would look for a menu that does not exist and then
+        // report that it could not open one.
+        const boxes = field.options?.filter((option) => option.el instanceof HTMLInputElement) ?? []
+
+        if (boxes.length > 0) {
+          const choice = asChoice(resolved)
+          if (choice === null) {
+            return { kind: "needs_you", reason: "This question needs your judgement" }
+          }
+
+          const option = pickOption(boxes, choice)
+          if (!option?.el) {
+            return { kind: "needs_you", reason: `No option here matches "${String(choice)}"` }
+          }
+
+          const box = option.el as HTMLInputElement
+          if (!box.checked) safeClick(box)
+
+          return { kind: "wrote", value: option.label }
+        }
+
+        // A <select multiple> falls through to the dropdown path.
+        return fillCombobox(field, resolved)
+      }
+
+      case "combobox": {
         const choice = asChoice(resolved)
         if (choice === null) return { kind: "error", reason: "Nothing sensible to select here" }
 

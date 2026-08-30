@@ -108,6 +108,23 @@ function kindOf(el: Element): FieldKind | null {
   return null
 }
 
+/** One section of a split date control. */
+function isDatePart(el: Element): boolean {
+  return el instanceof HTMLInputElement && el.getAttribute("role") === "spinbutton"
+}
+
+/**
+ * The container holding every section of one date.
+ *
+ * The nearest `role="group"`, which is what Workday puts on its
+ * `dateInputWrapper`. Falls back to the parent so a stray spin button still
+ * produces a field rather than disappearing.
+ */
+function dateGroup(el: Element): HTMLElement | null {
+  const group = el.closest("[role='group']") ?? el.parentElement
+  return group instanceof HTMLElement ? group : null
+}
+
 /** Whether a control is an ARIA toggle rather than a real `<input>`. */
 function isToggleElement(el: Element): boolean {
   return (
@@ -215,6 +232,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
   const seenCheckboxGroups = new Set<string>()
   const seenCheckboxContainers = new WeakSet<Element>()
   const seenToggleGroups = new WeakSet<Element>()
+  const seenDateGroups = new WeakSet<Element>()
 
   const candidates = Array.from(root.querySelectorAll(CONTROL_SELECTOR))
 
@@ -235,6 +253,49 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
     }
 
     if (isEffectivelyHidden(el)) continue
+
+    /**
+     * A date split across separate spin buttons is one field, not two or three.
+     *
+     * Workday renders From and To as a `role="group"` holding an MM input and
+     * a YYYY input, each `role="spinbutton"` with no type, so a scanner that
+     * takes them at face value reports two text fields called "Month" and
+     * "Year" per date. Four rows per job, none of which a profile has an
+     * answer for, and the real question is never asked.
+     */
+    if (isDatePart(el)) {
+      const wrapper = dateGroup(el)
+      if (!wrapper || seenDateGroups.has(wrapper)) continue
+      seenDateGroups.add(wrapper)
+
+      const parts = Array.from(
+        wrapper.querySelectorAll<HTMLInputElement>("input[role='spinbutton']")
+      )
+
+      const rawLabel = adapter?.label?.(wrapper, doc) || resolveLabel(wrapper, doc)
+
+      // The legend that labels this date is not also the block it belongs to.
+      // Workday wraps each date in a fieldset whose legend reads "From" or
+      // "To", so resolving the section from the group itself reports every
+      // date as its own section, and repeat indexes then count dates instead
+      // of jobs: the second date of the first job becomes the second job.
+      const sectionHost = wrapper.closest("fieldset")?.parentElement ?? wrapper
+
+      fields.push({
+        id: nextId("date"),
+        el: wrapper,
+        // A month and a year with no day is a month field. Whether a day is
+        // asked for changes what the profile has to supply.
+        kind: parts.some((part) => /\bday\b/i.test(part.getAttribute("aria-label") ?? ""))
+          ? "date"
+          : "month",
+        label: normalizeLabel(rawLabel),
+        required: isRequired(el, rawLabel),
+        section: resolveSection(sectionHost)
+      })
+
+      continue
+    }
 
     // ARIA toggle groups: emit once, keyed on the container.
     if (kind === "radiogroup" && isToggleElement(el)) {

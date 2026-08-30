@@ -35,6 +35,21 @@ const OPEN_WAIT_MS = 60
  */
 const MAX_WAIT_MS = 1500
 
+/**
+ * How long to wait, in total, for a click to show up in the control.
+ *
+ * Generous, because confirming early is cheap and the cost of giving up too
+ * soon is a correct field reported as a failure. Workday fetches the State
+ * list the moment a Country is chosen, so the trigger can take well over a
+ * second to repaint, and the old fixed 120ms sample called three correct
+ * selections "the dropdown would not commit it".
+ *
+ * A total, not a per-strategy budget. Three generous waits in a row is how a
+ * field that genuinely cannot be filled ends up taking five seconds to say so,
+ * and a form with four such fields spends twenty seconds looking broken.
+ */
+const COMMIT_WAIT_MS = 3000
+
 function sleep(ms: number): Promise<void> {
   return new Promise((done) => setTimeout(done, ms))
 }
@@ -175,6 +190,24 @@ async function waitForOptions(
   }
 
   return []
+}
+
+/**
+ * Poll until a condition holds, or the budget runs out.
+ *
+ * Sampling once after a fixed sleep asks "had it happened by 120ms", which is
+ * a question about the site's render speed rather than about whether the fill
+ * worked. Polling asks the question the caller actually has.
+ */
+async function waitUntil(condition: () => boolean, budgetMs: number): Promise<boolean> {
+  const deadline = Date.now() + budgetMs
+
+  while (Date.now() < deadline) {
+    if (condition()) return true
+    await sleep(OPEN_WAIT_MS)
+  }
+
+  return condition()
 }
 
 /** Dispatch a full pointer and mouse sequence, which is what these widgets listen for. */
@@ -406,30 +439,63 @@ async function commit(
     return now !== before || alreadyHolds(now, choice.label)
   }
 
+  // One deadline for every strategy below, so the escalation cannot compound.
+  const deadline = Date.now() + COMMIT_WAIT_MS
+  const budget = (share: number) => Math.min(share, Math.max(0, deadline - Date.now()))
+
   const target = fresh()
   if (target) {
     pressPointer(target)
-    await sleep(OPEN_WAIT_MS * 2)
-    if (took()) return true
+    // The click is the strategy that normally works, so it gets most of the
+    // budget; the fallbacks exist for widgets that ignore clicks outright,
+    // and those do not become true by being waited on longer.
+    if (await waitUntil(took, budget(2000))) return closeMenu(doc, input, stale, took)
   }
 
   // Keyboard commit, for lists that only accept their highlighted option.
+  //
+  // Only reached when the click genuinely did nothing, which matters: on a
+  // toggle like Workday's, ArrowDown reopens the menu, so running this after a
+  // click that had in fact worked left the dropdown hanging open over the rest
+  // of the form.
   input.focus?.()
   pressKey(input, "ArrowDown", 40)
   await sleep(OPEN_WAIT_MS)
   pressKey(input, "Enter", 13)
-  await sleep(OPEN_WAIT_MS * 2)
-  if (took()) return true
+  if (await waitUntil(took, budget(600))) return closeMenu(doc, input, stale, took)
 
   // One more click, in case the first landed during a re-render.
   const retry = fresh()
   if (retry) {
     pressPointer(retry)
-    await sleep(OPEN_WAIT_MS * 3)
-    if (took()) return true
+    if (await waitUntil(took, budget(1000))) return closeMenu(doc, input, stale, took)
   }
 
   return false
+}
+
+/**
+ * Put the menu away once the value is in.
+ *
+ * Workday leaves a committed dropdown open, which looks broken to the user and
+ * leaves the next field picking its way around a list of 250 countries. Escape
+ * is the documented gesture and the one a person would use.
+ *
+ * The value is re-checked afterwards, because a widget that treated Escape as
+ * "cancel" rather than "close" would otherwise have its revert reported as a
+ * success.
+ */
+function closeMenu(
+  doc: Document,
+  input: HTMLElement,
+  stale: ReadonlySet<Element>,
+  took: () => boolean
+): boolean {
+  if (findOpenMenu(doc, input, stale)) {
+    pressKey(input, "Escape", 27)
+  }
+
+  return took()
 }
 
 /**

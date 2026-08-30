@@ -20,7 +20,7 @@ function OptionsPage() {
     <div className="ditto-root ditto-page">
       <div className="ditto-page-inner">
         <header>
-          <Wordmark size={34} />
+          <Wordmark size={28} />
         </header>
 
         {loading || !profile ? (

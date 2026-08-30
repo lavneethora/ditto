@@ -218,6 +218,25 @@ function openHandles(input: Element): Element[] {
   return [toggle, shell, input].filter((el): el is Element => Boolean(el))
 }
 
+/**
+ * Whether a control already shows the value we were about to select.
+ *
+ * Strict on purpose. Loose containment would read the dial code "+1" as
+ * present in "Australia (+61)", and a false positive here is a green check on
+ * a field nobody set, which is the one thing invariant 5.1 exists to stop.
+ * `canonical` keeps the plus sign, so "+1" is a whole token and "+61" is a
+ * different one.
+ */
+function alreadyHolds(existing: string, wanted: string): boolean {
+  const have = canonical(existing)
+  const want = canonical(wanted)
+
+  if (!have || !want) return false
+  if (have === want) return true
+
+  return have.split(" ").includes(want)
+}
+
 export interface ComboboxResult {
   ok: boolean
   /** The option label that was committed, when it worked. */
@@ -237,6 +256,21 @@ export async function selectFromCombobox(
   doc: Document = input.ownerDocument
 ): Promise<ComboboxResult> {
   const isTextInput = input instanceof HTMLInputElement
+
+  // Nothing to do if the control already shows the wanted value.
+  //
+  // Workday pre-fills Country and Country Phone Code from the account, so
+  // opening a dropdown to choose the value it is already displaying is work
+  // that can only go wrong: the value never changes, the commit check sees
+  // nothing take, and a correct field is reported as one the dropdown would
+  // not commit. It also leaves a menu open for the next field to trip over.
+  //
+  // This is not a shortcut around verification. The caller still reads the
+  // DOM back and compares, exactly as it does for a value we did write.
+  const existing = readComboboxValue(input)
+  if (alreadyHolds(existing, wanted)) {
+    return { ok: true, value: existing }
+  }
 
   // Anything already open belongs to a field filled before this one.
   const stale: ReadonlySet<Element> = new Set(doc.querySelectorAll(MENU_SELECTORS))
@@ -364,7 +398,12 @@ async function commit(
 
   const took = () => {
     const now = current()
-    return Boolean(now) && now !== before
+    if (!now) return false
+
+    // Either the value changed, or it now shows what was picked. The second
+    // case covers a control that was already partly right, where a change is
+    // not available as evidence.
+    return now !== before || alreadyHolds(now, choice.label)
   }
 
   const target = fresh()

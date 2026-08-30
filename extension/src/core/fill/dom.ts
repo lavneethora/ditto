@@ -67,6 +67,31 @@ export function typeInto(el: ValueElement, value: string): void {
  *
  * Slower than a single write, so this is reserved for controls that need it.
  */
+/**
+ * The keyCode a real keyboard would report for a character.
+ *
+ * Handlers written before `key` existed still read `keyCode`, and a synthetic
+ * event that omits it reports 0 for every character.
+ */
+function keyCodeFor(char: string): number {
+  if (char === " ") return 32
+  return char.toUpperCase().charCodeAt(0)
+}
+
+/** An `input`-family event carrying what was typed, when the browser has one. */
+function inputEvent(type: "beforeinput" | "input", char: string): Event {
+  if (typeof InputEvent === "function") {
+    return new InputEvent(type, {
+      bubbles: true,
+      cancelable: type === "beforeinput",
+      inputType: "insertText",
+      data: char
+    })
+  }
+
+  return new Event(type, { bubbles: true })
+}
+
 export async function typeSequentially(
   el: HTMLInputElement,
   value: string,
@@ -76,13 +101,50 @@ export async function typeSequentially(
 
   el.focus?.()
   setNativeValue(el, "")
-  el.dispatchEvent(new Event("input", { bubbles: true }))
+  el.dispatchEvent(inputEvent("input", ""))
 
   for (const char of value) {
-    el.dispatchEvent(new KeyboardEvent("keydown", { key: char, bubbles: true }))
+    const keyCode = keyCodeFor(char)
+
+    /**
+     * The full sequence a real keystroke produces, not an approximation.
+     *
+     * Workday's search boxes returned "No Items." for a query sitting
+     * complete in the input, because the thin version of this told them
+     * nothing they were listening for. Which of these they actually read is
+     * not knowable from outside, and it costs nothing to send all of them:
+     *
+     *  - `keyCode` and `which`, for handlers older than the `key` property.
+     *  - `beforeinput`, which some editors treat as the real signal.
+     *  - `InputEvent` rather than `Event`, so `data` and `inputType` exist.
+     *    A handler building its query from `event.data` gets undefined from a
+     *    plain Event, and searches for nothing.
+     */
+    el.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: char,
+        code: `Key${char.toUpperCase()}`,
+        keyCode,
+        which: keyCode,
+        bubbles: true,
+        cancelable: true
+      })
+    )
+
+    el.dispatchEvent(inputEvent("beforeinput", char))
     setNativeValue(el, el.value + char)
-    el.dispatchEvent(new Event("input", { bubbles: true }))
-    el.dispatchEvent(new KeyboardEvent("keyup", { key: char, bubbles: true }))
+    el.dispatchEvent(inputEvent("input", char))
+
+    el.dispatchEvent(
+      new KeyboardEvent("keyup", {
+        key: char,
+        code: `Key${char.toUpperCase()}`,
+        keyCode,
+        which: keyCode,
+        bubbles: true,
+        cancelable: true
+      })
+    )
 
     if (delayMs > 0) await new Promise((done) => setTimeout(done, delayMs))
   }

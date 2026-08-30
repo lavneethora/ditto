@@ -117,23 +117,53 @@ describe("the three non-filled states stay distinct", () => {
 })
 
 describe("actionable items", () => {
-  it("surfaces errors and needs-you together, required first", () => {
+  it("surfaces everything still on the user, required first", () => {
+    // Skipped belongs here too. To Ditto it means "no answer on file"; to the
+    // person filling the form it means the same thing as the rest: an empty
+    // field. Under its own "Skipped" heading it read as handled.
     const report = buildReport({
       ats: "Greenhouse",
       results: [
         result("filled"),
         result("needs_you", false, { label: "Optional question" }),
         result("error", true, { label: "Country" }),
-        result("skipped", true)
+        result("skipped", true, { label: "Required but unanswered" })
       ],
       fieldsFound: 4
     })
 
     const items = actionableItems(report)
 
-    expect(items.map((i) => i.label)).toEqual(["Country", "Optional question"])
-    // A skipped field is not something the user has to act on.
-    expect(items.some((i) => i.status === "skipped")).toBe(false)
+    expect(items.map((i) => i.label)).toEqual([
+      "Country",
+      "Required but unanswered",
+      "Optional question"
+    ])
+  })
+
+  it("keeps the four states distinct even though they share a list", () => {
+    // Grouping changed; the data model did not. The percentage still counts
+    // only verified fills.
+    const report = buildReport({
+      ats: "Greenhouse",
+      results: [result("filled"), result("skipped"), result("error"), result("needs_you")],
+      fieldsFound: 4
+    })
+
+    expect(new Set(actionableItems(report).map((i) => i.status))).toEqual(
+      new Set(["error", "needs_you", "skipped"])
+    )
+    expect(report.percent).toBe(25)
+  })
+
+  it("never lists a verified fill as something to do", () => {
+    const report = buildReport({
+      ats: "Greenhouse",
+      results: [result("filled"), result("filled")],
+      fieldsFound: 2
+    })
+
+    expect(actionableItems(report)).toHaveLength(0)
   })
 })
 

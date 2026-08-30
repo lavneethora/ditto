@@ -233,6 +233,14 @@ export function resolveGroupLabel(inputs: Element[]): string {
 
     // Drop each option's row, not just its input, so the option's own text
     // goes with it.
+    // Toggle buttons carry their option text as their own content, so they
+    // are removed outright rather than by finding an enclosing row.
+    clone
+      .querySelectorAll("[aria-pressed], [role='radio'], [role='switch']")
+      .forEach((toggle) => {
+        if (toggle !== clone) toggle.remove()
+      })
+
     clone.querySelectorAll("input[type='radio'], input[type='checkbox']").forEach((input) => {
       // The option's text may be a sibling rather than an ancestor. Ashby
       // associates it with `label[for]` and renders it outside the input's

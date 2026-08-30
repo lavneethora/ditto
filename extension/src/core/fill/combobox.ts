@@ -1,6 +1,6 @@
 import { canonical } from "../label"
 import type { FieldOption } from "../types"
-import { fireInput, safeClick, setNativeValue, typeSequentially } from "./dom"
+import { fireInput, relocate, safeClick, setNativeValue, typeSequentially } from "./dom"
 import { pickText } from "./options"
 
 /**
@@ -78,21 +78,43 @@ const OPTION_SELECTORS = [
  * react-select and Workday both portal their menu to `document.body`, well
  * outside the control's subtree.
  */
-function findOpenMenu(doc: Document, control: Element): Element | null {
+/**
+ * The menu this control opened.
+ *
+ * `stale` holds the menus that were already in the document when this fill
+ * began, and a menu that opened during it is preferred over one that did not.
+ * Workday leaves a committed dropdown mounted, so filling Country and then
+ * Phone Device Type found the country list still sitting there, read 250
+ * countries as the phone type's options, and reported "found no option
+ * matching mobile" over a control whose own menu was never consulted.
+ *
+ * Preference rather than exclusion, because plenty of widgets keep a single
+ * menu mounted and merely repopulate it, and for those the pre-existing menu
+ * is the right one. A stale menu can never produce a wrong value on its own:
+ * clicking an option in another field's list does not change this control, so
+ * the commit check fails and the field is reported honestly.
+ */
+function findOpenMenu(
+  doc: Document,
+  control: Element,
+  stale: ReadonlySet<Element> = new Set()
+): Element | null {
   const owned = control.getAttribute("aria-controls") ?? control.getAttribute("aria-owns")
   if (owned) {
     const byId = doc.getElementById(owned)
     if (byId) return byId
   }
 
-  const menus = Array.from(doc.querySelectorAll(MENU_SELECTORS))
+  const all = Array.from(doc.querySelectorAll(MENU_SELECTORS))
+  const fresh = all.filter((menu) => !stale.has(menu))
 
-  // Prefer a menu that actually has options in it.
-  return (
-    menus.find((menu) => menu.querySelector(OPTION_SELECTORS)) ??
-    menus[menus.length - 1] ??
-    null
-  )
+  // A menu with options in it beats an empty one, and a fresh menu beats both.
+  for (const group of [fresh, all]) {
+    const populated = group.find((menu) => menu.querySelector(OPTION_SELECTORS))
+    if (populated) return populated
+  }
+
+  return fresh[fresh.length - 1] ?? all[all.length - 1] ?? null
 }
 
 function readOptions(menu: Element): FieldOption[] {
@@ -124,12 +146,13 @@ function readOptions(menu: Element): FieldOption[] {
 async function waitForOptions(
   doc: Document,
   control: Element,
-  budgetMs: number = MAX_WAIT_MS
+  budgetMs: number = MAX_WAIT_MS,
+  stale: ReadonlySet<Element> = new Set()
 ): Promise<FieldOption[]> {
   const deadline = Date.now() + budgetMs
 
   while (Date.now() < deadline) {
-    const menu = findOpenMenu(doc, control)
+    const menu = findOpenMenu(doc, control, stale)
 
     if (menu) {
       const options = readOptions(menu)
@@ -141,7 +164,7 @@ async function waitForOptions(
         // clicked, so the click silently does nothing.
         await sleep(OPEN_WAIT_MS * 2)
 
-        const settled = findOpenMenu(doc, control)
+        const settled = findOpenMenu(doc, control, stale)
         const after = settled ? readOptions(settled) : []
 
         return after.length > 0 ? after : options
@@ -215,24 +238,37 @@ export async function selectFromCombobox(
 ): Promise<ComboboxResult> {
   const isTextInput = input instanceof HTMLInputElement
 
+  // Anything already open belongs to a field filled before this one.
+  const stale: ReadonlySet<Element> = new Set(doc.querySelectorAll(MENU_SELECTORS))
+
   // Phase one: get the menu open. Cheap, and repeated across handles because
   // widgets disagree about which element and which gesture opens them.
   let opened = false
 
+  // A trigger that is already open must not be pressed again. Workday's
+  // Country and State controls are toggle buttons, so the second handle in the
+  // list closes the menu the first one opened, and the field then reports that
+  // it could not be opened at all.
+  //
+  // Two signals, and the menu one only counts after a press of our own. Before
+  // that, any open menu belongs to the field filled before this one, and
+  // treating it as ours means never pressing this control at all.
+  let pressed = false
+  const alreadyOpen = () =>
+    input.getAttribute("aria-expanded") === "true" ||
+    (pressed && Boolean(findOpenMenu(doc, input, stale)))
+
   for (const handle of openHandles(input)) {
-    // A trigger that is already open must not be pressed again. Workday's
-    // Country and State controls are toggle buttons, so the second handle in
-    // the list closes the menu the first one opened, and the field then
-    // reports that it could not be opened at all.
-    if (findOpenMenu(doc, input) || input.getAttribute("aria-expanded") === "true") {
+    if (alreadyOpen()) {
       opened = true
       break
     }
 
+    pressed = true
     pressPointer(handle)
     await sleep(OPEN_WAIT_MS)
 
-    if (findOpenMenu(doc, input)) {
+    if (findOpenMenu(doc, input, stale)) {
       opened = true
       break
     }
@@ -241,7 +277,7 @@ export async function selectFromCombobox(
     pressKey(input, "ArrowDown", 40)
     await sleep(OPEN_WAIT_MS)
 
-    if (findOpenMenu(doc, input)) {
+    if (findOpenMenu(doc, input, stale)) {
       opened = true
       break
     }
@@ -254,12 +290,12 @@ export async function selectFromCombobox(
   // a per-character type plus a network wait is expensive, and repeating it
   // for every candidate handle made a field that could not be filled take ten
   // seconds to say so.
-  let options = await waitForOptions(doc, input, OPEN_WAIT_MS * 4)
+  let options = await waitForOptions(doc, input, OPEN_WAIT_MS * 4, stale)
 
   if (options.length === 0 && isTextInput) {
     for (const query of queriesFor(wanted)) {
       await typeSequentially(input as HTMLInputElement, query)
-      options = await waitForOptions(doc, input, MAX_WAIT_MS)
+      options = await waitForOptions(doc, input, MAX_WAIT_MS, stale)
       if (options.length > 0) break
     }
   }
@@ -274,7 +310,7 @@ export async function selectFromCombobox(
     return { ok: false, reason: `Opened the dropdown but found no option matching "${wanted}"` }
   }
 
-  const committed = await commit(doc, input, choice)
+  const committed = await commit(doc, input, choice, stale)
 
   if (!committed) {
     // Honest failure rather than a claim the caller would have to disprove.
@@ -305,12 +341,18 @@ export async function selectFromCombobox(
 async function commit(
   doc: Document,
   input: HTMLElement,
-  choice: FieldOption
+  choice: FieldOption,
+  stale: ReadonlySet<Element> = new Set()
 ): Promise<boolean> {
-  const before = readComboboxValue(input)
+  // Read through relocate: committing makes these widgets re-render, and the
+  // trigger Ditto is holding can be replaced by an identical one carrying the
+  // new value. Reading the detached original reports a successful pick as a
+  // dropdown that would not commit.
+  const current = () => readComboboxValue((relocate(input) ?? input) as HTMLElement)
+  const before = current()
 
   const fresh = (): HTMLElement | null => {
-    const menu = findOpenMenu(doc, input)
+    const menu = findOpenMenu(doc, input, stale)
     if (!menu) return choice.el ?? null
 
     const match = Array.from(menu.querySelectorAll<HTMLElement>(OPTION_SELECTORS)).find(
@@ -321,7 +363,7 @@ async function commit(
   }
 
   const took = () => {
-    const now = readComboboxValue(input)
+    const now = current()
     return Boolean(now) && now !== before
   }
 

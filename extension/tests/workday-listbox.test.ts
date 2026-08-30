@@ -157,3 +157,58 @@ describe("a dropdown that is already right", () => {
     expect(result.value).toBe("Canada")
   })
 })
+
+describe("confirming a slow commit", () => {
+  /**
+   * Reported live: Country, State and Phone Device Type each selected
+   * correctly and each reported "the dropdown would not commit it". The
+   * read-back was right all along; it was read too early. Choosing a Country
+   * makes Workday fetch the State list, so the trigger repaints well after the
+   * 120ms the old check sampled at.
+   */
+
+  it("waits for a trigger that repaints late", async () => {
+    for (const option of document.querySelectorAll<HTMLElement>("li[role='option']")) {
+      option.addEventListener("click", () => {
+        if (option.getAttribute("aria-disabled") === "true") return
+
+        // Well past the old fixed sample, as a server round trip would be.
+        setTimeout(() => {
+          trigger().textContent = option.textContent!.trim()
+        }, 700)
+      })
+    }
+
+    const result = await selectFromCombobox(trigger(), "Canada")
+
+    expect(result.ok).toBe(true)
+    expect(result.value).toBe("Canada")
+  })
+
+  it("gives up in seconds, not in a queue of escalating waits", async () => {
+    // Three generous waits in a row is how one unfillable field takes five
+    // seconds to say so, and a form with four of them looks broken.
+    const started = Date.now()
+
+    const result = await selectFromCombobox(trigger(), "Canada")
+
+    expect(result.ok).toBe(false)
+    expect(Date.now() - started).toBeLessThan(3600)
+  })
+
+  it("closes the menu once the value is in", async () => {
+    // Workday leaves a committed dropdown open, which reads as broken and
+    // leaves the next field picking its way around 250 countries.
+    wireSelection()
+    document.getElementById("country--country")!.addEventListener("keydown", (event) => {
+      if ((event as KeyboardEvent).key === "Escape") {
+        document.querySelector("[data-popper-placement]")?.remove()
+      }
+    })
+
+    const result = await selectFromCombobox(trigger(), "Canada")
+
+    expect(result.ok).toBe(true)
+    expect(document.querySelector("[data-popper-placement]")).toBeNull()
+  })
+})

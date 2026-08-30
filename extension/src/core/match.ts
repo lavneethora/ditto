@@ -22,6 +22,7 @@ import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 /** Keys whose stored value is a boolean, and therefore invertible. */
 export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
   "personal.hasPreferredName",
+  "work[].current",
   "eeo.authorizedUS",
   "eeo.requiresSponsorship",
   "preferences.willingToRelocate"
@@ -251,6 +252,12 @@ const RULES: MatchRule[] = [
   // --- Work -----------------------------------------------------------------
 
   { key: "work[].company", test: /\bcompany\b|\bemployer\b|\borganization\b|\borganisation\b/, weight: 90 },
+  {
+    key: "work[].current",
+    test: /\bi\s+currently\s+work\s+here\b|\bcurrently\s+(?:work|employed)\s+(?:here|at)\b/,
+    weight: 100,
+    invert: false
+  },
   { key: "work[].title", test: /\bjob\s+title\b|\bposition\s+title\b|^title$|^role$|\b(?:current|recent|previous)\s+role\b/, weight: 85 },
   {
     key: "work[].summary",
@@ -365,7 +372,12 @@ export function match(
   // it is exact rather than inferred.
   const declared = adapterKey?.(field.el as Element) ?? null
   if (declared) {
-    return { key: declared, invert: false, rule: "adapter key" }
+    // Through applySection like every other route. Workday uses the same
+    // automation id for the dates in a work panel and an education panel, so
+    // one mapping serves both and which block the field sits in decides which
+    // key it is. Returning the declared key raw put a job's start date into
+    // the education entry.
+    return { key: applySection(declared, section), invert: false, rule: "adapter key" }
   }
 
   // A standard autocomplete token beats prose, and works even when the label

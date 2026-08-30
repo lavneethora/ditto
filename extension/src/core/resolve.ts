@@ -91,10 +91,21 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
   switch (key) {
     // --- Booleans. The only place `invert` is applied. ----------------------
 
+    case "preferences.howDidYouHear":
+      return text(profile.preferences.howDidYouHear, "answer for how you heard about them")
+
+    case "preferences.desiredSalary":
+      return text(profile.preferences.desiredSalary, "desired salary")
+
     case "eeo.authorizedUS":
-    case "eeo.requiresSponsorship": {
+    case "eeo.requiresSponsorship":
+    case "preferences.willingToRelocate": {
       const stored =
-        key === "eeo.authorizedUS" ? profile.eeo.authorizedUS : profile.eeo.requiresSponsorship
+        key === "eeo.authorizedUS"
+          ? profile.eeo.authorizedUS
+          : key === "eeo.requiresSponsorship"
+            ? profile.eeo.requiresSponsorship
+            : profile.preferences.willingToRelocate
 
       if (stored === null) {
         return { kind: "none", reason: "Not answered in your profile" }

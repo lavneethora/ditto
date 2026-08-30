@@ -19,24 +19,17 @@ export type Resolved =
   | { kind: "tristate"; value: TriState }
   | { kind: "list"; value: string[] }
   | { kind: "file"; value: Resume }
-  /** Nothing on file. Reported as SKIPPED. */
+  /**
+   * Nothing on file. Reported as SKIPPED.
+   *
+   * This is also how a voluntary question gets declined: leaving it on "Not
+   * answered" resolves to `none`, so Ditto skips it. There is no separate
+   * opt-out state, because a standing refusal would leave a required field
+   * blank on the forms that mark these questions required.
+   */
   | { kind: "none"; reason: string }
-  /** User opted out of this question. Reported as SKIPPED, never guessed. */
-  | { kind: "opted_out"; reason: string }
   /** Recognized but only the user can answer. Reported as NEEDS YOU. */
   | { kind: "needs_you"; reason: string }
-
-/** Maps a profile key onto the eeo.neverFill opt-out key, when there is one. */
-const OPT_OUT_KEYS: Partial<Record<ProfileKey, string>> = {
-  "eeo.disability": "disability",
-  "eeo.veteran": "veteran",
-  "eeo.gender": "gender",
-  "eeo.race": "race",
-  "eeo.hispanicLatino": "hispanicLatino",
-  "eeo.lgbtq": "lgbtq",
-  "eeo.sexualOrientation": "sexualOrientation",
-  "eeo.pronouns": "pronouns"
-}
 
 function text(value: string | undefined | null, label: string): Resolved {
   const trimmed = (value ?? "").trim()
@@ -91,11 +84,6 @@ function matchSavedAnswer(profile: Profile, question: string): Resolved {
 
 export function resolve(match: MatchResult, field: FieldSpec, profile: Profile): Resolved {
   const { key, invert } = match
-
-  const optOut = OPT_OUT_KEYS[key]
-  if (optOut && profile.eeo.neverFill.includes(optOut)) {
-    return { kind: "opted_out", reason: "You chose never to fill this" }
-  }
 
   const p = profile.personal
   const index = field.repeatIndex

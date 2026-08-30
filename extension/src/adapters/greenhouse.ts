@@ -70,7 +70,11 @@ export const greenhouse: Adapter = {
     if (doc.getElementById("grnhse_app") || doc.getElementById("grnhse_iframe")) return true
 
     // Legacy markup fingerprint, for boards served from a custom domain.
-    return Boolean(doc.querySelector("#application_form, form#application-form, [data-mapped='application']"))
+    //
+    // Deliberately excludes a bare `form#application-form`: Lever uses that
+    // exact id, so matching on it made this adapter claim every Lever page and
+    // then fail to fill it. The markers left here are Greenhouse's own.
+    return Boolean(doc.querySelector("#application_form, [data-mapped='application']"))
   },
 
   root(doc) {

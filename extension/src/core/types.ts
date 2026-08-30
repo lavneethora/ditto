@@ -85,6 +85,14 @@ export const PROFILE_KEYS = [
   "personal.linkedin",
   "personal.github",
   "personal.website",
+  /**
+   * One of the user's links, chosen by which panel asks for it.
+   *
+   * Workday's Websites section is a repeatable list of bare URL boxes with no
+   * hint which is which, so the three separate profile fields are presented to
+   * it as one ordered list and paired with panels by position.
+   */
+  "personal.link",
 
   "education[].school",
   "education[].degree",
@@ -214,7 +222,7 @@ export interface FillReport {
  */
 export interface RepeatableSection {
   /** Which profile collection fills it. */
-  collection: "work" | "education"
+  collection: "work" | "education" | "websites"
   /** Entry panels already on the page. */
   present: number
   /** The control that adds one more. */

@@ -38,6 +38,27 @@ describe("detection", () => {
     expect(detectAdapter(document, "https://jobs.lever.co/acme/abc/apply")?.id).toBe("lever")
   })
 
+  it("wins on host even if the markup were ambiguous", () => {
+    // Reported live: the panel said "Greenhouse detected" on a Lever page, so
+    // none of Lever's rules or its label hook applied. Host is now checked
+    // before any markup and settles it regardless of registry order.
+    const url = "https://jobs.lever.co/xsolla/553aea16/apply"
+
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<form id="application-form"><input name="email"></form>`
+    )
+
+    expect(detectAdapter(document, url)?.id).toBe("lever")
+  })
+
+  it("leaves a real Greenhouse URL to Greenhouse", () => {
+    expect(
+      detectAdapter(document, "https://job-boards.greenhouse.io/acme/jobs/1")?.id
+    ).toBe("greenhouse")
+  })
+
   it("scopes scanning to the application form", () => {
     expect(lever.root?.(document)?.id).toBe("application-form")
   })

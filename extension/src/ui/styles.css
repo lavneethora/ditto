@@ -801,13 +801,6 @@
   flex-shrink: 0;
 }
 
-.ditto-drawer-foot {
-  flex-shrink: 0;
-  padding: 12px 16px;
-  border-top: 1px solid var(--ditto-border-subtle);
-  background: var(--ditto-bg);
-}
-
 .ditto-detect {
   font-size: 13px;
   color: var(--ditto-text-secondary);

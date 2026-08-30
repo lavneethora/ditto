@@ -358,20 +358,30 @@ export async function selectFromCombobox(
   // for every candidate handle made a field that could not be filled take ten
   // seconds to say so.
   let options = await waitForOptions(doc, input, OPEN_WAIT_MS * 4, stale)
+  let choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
 
-  if (options.length === 0 && isTextInput) {
+  /**
+   * Type to filter, whenever what opened does not already contain the answer.
+   *
+   * Not only when the menu is empty. Workday's School and Field of Study
+   * boxes are search backed: opening them shows a short default list, so the
+   * old test saw options, never typed, and reported "found no option matching
+   * Texas Tech University" against a list of somebody else's suggestions. The
+   * university is in Workday's data; it just has to be asked for.
+   */
+  if (!choice && isTextInput) {
     for (const query of queriesFor(wanted)) {
       await typeSequentially(input as HTMLInputElement, query)
       options = await waitForOptions(doc, input, MAX_WAIT_MS, stale)
-      if (options.length > 0) break
+
+      choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
+      if (choice) break
     }
   }
 
   if (options.length === 0) {
     return { ok: false, reason: "The dropdown opened but returned no results" }
   }
-
-  const choice = pickText(options, wanted) ?? exactish(options, wanted)
 
   if (!choice?.el) {
     return { ok: false, reason: `Opened the dropdown but found no option matching "${wanted}"` }

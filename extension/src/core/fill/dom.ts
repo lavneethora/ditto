@@ -32,6 +32,25 @@ export function setNativeValue(el: ValueElement, value: string): void {
   } else {
     el.value = value
   }
+
+  /**
+   * Tell React's value tracker the value changed.
+   *
+   * React caches the last value it knows on the element itself, as
+   * `_valueTracker`, and skips its change handler whenever that cache matches
+   * what it reads back. Going through the prototype setter is supposed to
+   * leave the cache stale so the next `input` event looks like a real edit,
+   * and on most controls it does.
+   *
+   * Measured on a live Workday page it does not: the search box's value
+   * updated, the widget never re-rendered, and three seconds later the list
+   * still showed the unfiltered set. Ditto had typed a query the component
+   * never learned about, so the search it was waiting for was never going to
+   * run. Setting the cache to anything other than the new value makes the
+   * change unmistakable.
+   */
+  const tracked = el as { _valueTracker?: { setValue(cached: string): void } }
+  tracked._valueTracker?.setValue(value === "" ? "\u0000" : "")
 }
 
 /** Dispatch the events a real user interaction would produce. */

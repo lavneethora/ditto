@@ -114,6 +114,18 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
         const value = asText(resolved, field.kind)
         if (value === null) return { kind: "error", reason: "Nothing sensible to write here" }
 
+        // Workday spreads a date across separate MM and YYYY spin buttons
+        // inside a group, so there is no single input to write to.
+        //
+        // Given the STORED value, not the formatted one. Formatting pads
+        // "2024-06" out to "2024-06-01" so a single date input has a full
+        // date to accept, and for split boxes that invented day would be
+        // typed into a box of its own, asserting a start date the user never
+        // gave. See PRD 5.2.
+        if (!(field.el instanceof HTMLInputElement)) {
+          return fillDateParts(field.el, resolved.kind === "text" ? resolved.value : value)
+        }
+
         typeInto(field.el as HTMLInputElement, value)
         return { kind: "wrote", value }
       }
@@ -231,4 +243,47 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
       reason: error instanceof Error ? error.message : "Could not write to this field"
     }
   }
+}
+
+/**
+ * Write a date into the separate boxes a site has split it across.
+ *
+ * Workday's From and To are a `role="group"` holding an MM spin button and a
+ * YYYY one, each labelled by `aria-label`. Each part is written on its own,
+ * because the widget keeps its state per section and a single string typed
+ * into the first box is either rejected or silently truncated.
+ *
+ * Parts the profile has no answer for are left alone rather than zeroed: a
+ * stored "2024-06" has no day in it, and writing 01 into a day box invents a
+ * date the user never gave.
+ */
+function fillDateParts(group: HTMLElement, value: string): AttemptOutcome {
+  const parts = Array.from(group.querySelectorAll<HTMLInputElement>("input[role='spinbutton']"))
+  if (parts.length === 0) {
+    return { kind: "error", reason: "This date has no boxes to write into" }
+  }
+
+  // "2024-06" and "2024-06-15", the two shapes the profile stores.
+  const [year, month, day] = value.split("-")
+  if (!year || !month) {
+    return { kind: "error", reason: `Could not read "${value}" as a date` }
+  }
+
+  const forPart: Record<string, string | undefined> = { month, year, day }
+  let written = 0
+
+  for (const part of parts) {
+    const which = (part.getAttribute("aria-label") ?? "").toLowerCase().trim()
+    const text = forPart[which]
+    if (!text) continue
+
+    typeInto(part, text)
+    written += 1
+  }
+
+  if (written === 0) {
+    return { kind: "error", reason: "None of this date's boxes could be identified" }
+  }
+
+  return { kind: "wrote", value }
 }

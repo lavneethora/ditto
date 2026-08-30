@@ -329,9 +329,20 @@ function associatedLabels(el: Element): Element[] {
   const wrapping = el.closest("label")
   if (wrapping) found.push(wrapping)
 
-  for (const id of (el.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean)) {
-    const target = doc.getElementById(id)
-    if (target) found.push(target)
+  // The control's own aria-labelledby, then the nearest ancestor's.
+  //
+  // A composite widget names itself on its container rather than on the input
+  // inside it. Workday's resume upload is a div carrying
+  // `aria-labelledby="label18"` wrapping a dropzone, a button and a hidden
+  // file input, and the asterisk lives in label18. Read from the input alone
+  // there is no label at all, and a required resume reports itself optional.
+  const labelledBy = el.closest("[aria-labelledby]")
+
+  for (const source of new Set([el, labelledBy].filter(Boolean) as Element[])) {
+    for (const id of (source.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean)) {
+      const target = doc.getElementById(id)
+      if (target) found.push(target)
+    }
   }
 
   return found

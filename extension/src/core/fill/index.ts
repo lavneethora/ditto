@@ -3,7 +3,16 @@ import { resumeToFile } from "~profile/resume"
 import type { AttemptOutcome, FieldSpec } from "../types"
 import type { Resolved } from "../resolve"
 import { selectFromCombobox } from "./combobox"
-import { attachFiles, dropFiles, isLive, safeClick, setNativeValue, fireInput, typeInto } from "./dom"
+import {
+  attachFiles,
+  dropFiles,
+  fireInput,
+  isLive,
+  safeClick,
+  setNativeValue,
+  typeInto,
+  typeSequentially
+} from "./dom"
 import { pickOption } from "./options"
 
 /**
@@ -76,6 +85,37 @@ function asChoice(resolved: Resolved): string | boolean | null {
   }
 }
 
+/**
+ * Add several values to one control, one at a time.
+ *
+ * A skills box takes many entries, and each is a separate open, type and
+ * pick. Partial success is reported as success with what actually went in,
+ * because a form that took eight of twelve skills is not a failed field, and
+ * the read-back still has to agree before any of it counts as filled.
+ */
+async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOutcome> {
+  const wanted = values.filter((value) => value.trim().length > 0)
+  if (wanted.length === 0) return { kind: "skipped", reason: "Nothing saved to add here" }
+
+  const added: string[] = []
+  const refused: string[] = []
+
+  for (const value of wanted) {
+    const outcome = await selectFromCombobox(el, value)
+    if (outcome.ok) added.push(outcome.value ?? value)
+    else refused.push(value)
+  }
+
+  if (added.length === 0) {
+    return {
+      kind: "needs_you",
+      reason: `None of your saved entries are offered here (tried ${wanted.length})`
+    }
+  }
+
+  return { kind: "wrote", value: added.join(", ") }
+}
+
 /** The dropdown path, shared by comboboxes and multi-selects. */
 async function fillCombobox(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {
   const choice = asChoice(resolved)
@@ -123,7 +163,7 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
         // typed into a box of its own, asserting a start date the user never
         // gave. See PRD 5.2.
         if (!(field.el instanceof HTMLInputElement)) {
-          return fillDateParts(field.el, resolved.kind === "text" ? resolved.value : value)
+          return await fillDateParts(field.el, resolved.kind === "text" ? resolved.value : value)
         }
 
         typeInto(field.el as HTMLInputElement, value)
@@ -220,6 +260,14 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
       }
 
       case "combobox": {
+        // A list is many selections in one control, not one comma-joined
+        // string. Skills is the case: asChoice had no answer for a list, so
+        // the whole field came back as "nothing sensible to select here"
+        // while the profile held a dozen skills the box was asking for.
+        if (resolved.kind === "list") {
+          return await selectMany(field.el as HTMLElement, resolved.value)
+        }
+
         const choice = asChoice(resolved)
         if (choice === null) return { kind: "error", reason: "Nothing sensible to select here" }
 
@@ -257,7 +305,7 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
  * stored "2024-06" has no day in it, and writing 01 into a day box invents a
  * date the user never gave.
  */
-function fillDateParts(group: HTMLElement, value: string): AttemptOutcome {
+async function fillDateParts(group: HTMLElement, value: string): Promise<AttemptOutcome> {
   const parts = Array.from(group.querySelectorAll<HTMLInputElement>("input[role='spinbutton']"))
   if (parts.length === 0) {
     return { kind: "error", reason: "This date has no boxes to write into" }
@@ -277,7 +325,12 @@ function fillDateParts(group: HTMLElement, value: string): AttemptOutcome {
     const text = forPart[which]
     if (!text) continue
 
-    typeInto(part, text)
+    // Typed, not assigned. A spin button keeps its own state and updates it
+    // from keystrokes: setting the value put 06/2026 on screen while
+    // Workday's model still had no year, and it rejected the field as
+    // "Invalid Date: 06/" over boxes that visibly read correctly.
+    await typeSequentially(part, text, 0)
+    part.dispatchEvent(new Event("change", { bubbles: true }))
     written += 1
   }
 

@@ -41,7 +41,14 @@ function sleep(ms: number): Promise<void> {
 
 /** Selectors for the popup that appears once a combobox opens. */
 const MENU_SELECTORS = [
-  "[role='listbox']",
+  // Not the pill list of what is already chosen. Workday's multiselect renders
+  // its current selection as a `<ul role="listbox">` sitting inside the
+  // control itself, and each pill is a `[data-automation-id='promptOption']`,
+  // so both halves of menu discovery match it. Clicking a "option" in there
+  // does not choose anything: the pill's own click target is a delete charm,
+  // so the driver would clear the field it was sent to fill and then report
+  // success because an option was pressed.
+  "[role='listbox']:not([data-automation-id='selectedItemList'])",
   ".select__menu",
   "[class*='menu-list']",
   "[class*='__menu']",
@@ -361,6 +368,31 @@ export function readComboboxValue(input: HTMLElement): string {
   const container = input.closest("[data-value]")
   const dataValue = container?.getAttribute("data-value")
   if (dataValue) return dataValue
+
+  // A listbox button carries its own display value as its text. Workday's
+  // Country, State and Phone Device Type are buttons, not inputs, so every
+  // other branch here returns nothing and a successful pick verifies as a
+  // failure.
+  //
+  // The empty state is the words "Select One", not an empty string, and
+  // reporting that as the value would confirm any fill at all.
+  if (input.tagName === "BUTTON" && input.getAttribute("aria-haspopup") === "listbox") {
+    const text = (input.innerText ?? input.textContent ?? "").trim()
+    return /^select one$/i.test(text) ? "" : text
+  }
+
+  // Workday's multiselect keeps the chosen values in pills and clears the
+  // search box, so the input's own value is empty or a stale query.
+  const multiselect = input.closest("[data-uxi-widget-type='multiselect']")
+  if (multiselect) {
+    const chosen = Array.from(
+      multiselect.querySelectorAll("[data-automation-id='promptOption']")
+    )
+      .map((el) => el.getAttribute("data-automation-label") ?? el.textContent?.trim() ?? "")
+      .filter(Boolean)
+
+    if (chosen.length > 0) return chosen.join(", ")
+  }
 
   const shell = input.closest(".select__control, [class*='__control']")
   const single = shell?.querySelector("[class*='singleValue'], [class*='single-value']")

@@ -13,6 +13,7 @@ import { AnswersSection } from "./sections/AnswersSection"
 import { EducationSection } from "./sections/EducationSection"
 import { EeoSection } from "./sections/EeoSection"
 import { PersonalSection } from "./sections/PersonalSection"
+import { PreferencesSection } from "./sections/PreferencesSection"
 import { SkillsSection } from "./sections/SkillsSection"
 import { WorkSection } from "./sections/WorkSection"
 import type { SectionProps } from "./shared"
@@ -23,6 +24,7 @@ const PANES: Record<SectionId, ComponentType<SectionProps>> = {
   work: WorkSection,
   skills: SkillsSection,
   eeo: EeoSection,
+  preferences: PreferencesSection,
   answers: AnswersSection
 }
 
@@ -61,7 +63,7 @@ export function ProfileModal({
   const panel = (
     <div className={`ditto-modal${inline ? " ditto-modal--inline" : ""}`}>
       <div className="ditto-modal-head">
-        <h1 className="ditto-title">Your Autofill information</h1>
+        <h1 className="ditto-title">Your Autofill Information</h1>
         {onClose && (
           <button type="button" className="ditto-icon-btn" aria-label="Close" onClick={onClose}>
             &times;

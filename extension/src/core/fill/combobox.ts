@@ -436,6 +436,11 @@ export async function selectFromCombobox(
    * Texas Tech University" against a list of somebody else's suggestions. The
    * university is in Workday's data; it just has to be asked for.
    */
+  // Whether the list had to be asked for. On a box like that, Enter means
+  // "search", so it must not also be used to mean "select".
+  let searchRanOnEnter = false
+  let typedQuery: string | null = null
+
   if (!choice && isTextInput) {
     const deadline = Date.now() + SEARCH_BUDGET_MS
 
@@ -444,6 +449,7 @@ export async function selectFromCombobox(
       if (left <= 0) break
 
       await typeSequentially(input as HTMLInputElement, query)
+      typedQuery = query
 
       // A short look first, for the boxes that filter as you type. Lever's
       // location typeahead is one of those and must not be sent an Enter it
@@ -463,6 +469,7 @@ export async function selectFromCombobox(
        */
       if (options.length === 0) {
         pressKey(input, "Enter", 13)
+        searchRanOnEnter = true
         options = await waitForOptions(doc, input, Math.max(0, deadline - Date.now()), stale)
       }
 
@@ -516,7 +523,25 @@ export async function selectFromCombobox(
    */
   const topIsExact = options.length > 0 && canonical(options[0].label) === canonical(wanted)
 
-  const committed = await commit(doc, input, choice, stale, topIsExact, options.indexOf(choice))
+  /**
+   * Enter-first only where Enter means "take this".
+   *
+   * On a box whose list had to be summoned with Enter, that key already has a
+   * job, and pressing it again is as likely to re-run the search as to choose
+   * anything. There the row is clicked, which says exactly which one is
+   * wanted and cannot be mistaken for anything else.
+   */
+  const enterSelects = topIsExact && !searchRanOnEnter
+
+  const committed = await commit(
+    doc,
+    input,
+    choice,
+    stale,
+    enterSelects,
+    options.indexOf(choice),
+    typedQuery
+  )
 
   if (!committed) {
     // Honest failure rather than a claim the caller would have to disprove.
@@ -601,7 +626,8 @@ async function commit(
   choice: FieldOption,
   stale: ReadonlySet<Element> = new Set(),
   enterFirst = false,
-  optionIndex = -1
+  optionIndex = -1,
+  typedQuery: string | null = null
 ): Promise<boolean> {
   // Read through relocate: committing makes these widgets re-render, and the
   // trigger Ditto is holding can be replaced by an identical one carrying the
@@ -627,6 +653,28 @@ async function commit(
   const took = () => {
     const now = current()
     if (!now) return false
+
+    /**
+     * The box still holding the query is not evidence.
+     *
+     * On a search box with nothing selected the read-back falls through to
+     * `input.value`, which holds what Ditto just typed, and what Ditto typed
+     * is the label it is looking for. Without this the very first check
+     * passes, commit reports success having selected nothing, and the field
+     * is reported filled while sitting empty on screen.
+     *
+     * Only the exact query, though. A plain typeahead like Lever's commits by
+     * writing its own answer into the box, and "Lubbock, TX, USA" is not the
+     * "Lubbock, Texas" that was typed: that is a real selection, not an echo.
+     */
+    if (
+      typedQuery !== null &&
+      input instanceof HTMLInputElement &&
+      canonical(input.value) === canonical(typedQuery) &&
+      canonical(now) === canonical(input.value)
+    ) {
+      return false
+    }
 
     // Either the value changed, or it now shows what was picked. The second
     // case covers a control that was already partly right, where a change is
@@ -786,7 +834,11 @@ export function readComboboxValue(input: HTMLElement): string {
       .map((el) => el.getAttribute("data-automation-label") ?? el.textContent?.trim() ?? "")
       .filter(Boolean)
 
-    if (chosen.length > 0) return chosen.join(", ")
+    // Authoritative, including when it is empty. Falling through to the input
+    // would read the search box, whose text is the query rather than the
+    // answer, and a query is by definition the thing being looked for: the
+    // field then confirms itself the moment Ditto types into it.
+    return chosen.join(", ")
   }
 
   const shell = input.closest(".select__control, [class*='__control']")

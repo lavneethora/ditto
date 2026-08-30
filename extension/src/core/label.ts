@@ -234,7 +234,18 @@ export function resolveGroupLabel(inputs: Element[]): string {
     // Drop each option's row, not just its input, so the option's own text
     // goes with it.
     clone.querySelectorAll("input[type='radio'], input[type='checkbox']").forEach((input) => {
-      const row = input.closest("label, li, [role='radio'], [role='option']")
+      // The option's text may be a sibling rather than an ancestor. Ashby
+      // associates it with `label[for]` and renders it outside the input's
+      // wrapper, so removing only the ancestor leaves every option's text
+      // behind and the question comes out as the whole list.
+      const id = input.getAttribute("id")
+      if (id) {
+        clone
+          .querySelectorAll(`label[for="${id.replace(/["\\]/g, "\\$&")}"]`)
+          .forEach((associated) => associated.remove())
+      }
+
+      const row = input.closest("label, li, [role='radio'], [role='option'], [class*='option']")
       if (row && row !== clone) row.remove()
       else input.remove()
     })

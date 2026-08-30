@@ -195,6 +195,69 @@ function readOptions(menu: Element): FieldOption[] {
     )
 }
 
+/**
+ * The element that actually scrolls a menu.
+ *
+ * Usually the menu itself. Workday renders its long lists with React
+ * Virtualized, where the scrolling element is the grid and the rows sit in an
+ * inner container sized to the full list.
+ */
+function scrollerFor(menu: Element): Element {
+  const candidates = [menu, ...Array.from(menu.querySelectorAll("*"))].filter(
+    (el) => el.scrollHeight > el.clientHeight + 1
+  )
+
+  return candidates[0] ?? menu
+}
+
+/**
+ * Scroll a long menu looking for the wanted option.
+ *
+ * A virtualized list keeps only the visible rows in the DOM, so an option
+ * further down does not exist to be read or clicked until it has been
+ * scrolled to. Reported on Workday's Skills box, where the list is long
+ * enough that most values were simply not there when Ditto looked.
+ *
+ * Stops as soon as the list stops moving, so a list that is already fully
+ * shown costs one read.
+ */
+async function scrollForOption(
+  doc: Document,
+  input: HTMLElement,
+  stale: ReadonlySet<Element>,
+  wanted: string,
+  budgetMs: number
+): Promise<FieldOption | null> {
+  const deadline = Date.now() + budgetMs
+  let lastSeen = ""
+
+  while (Date.now() < deadline) {
+    const menu = findOpenMenu(doc, input, stale)
+    if (!menu) return null
+
+    const options = readOptions(menu)
+
+    const hit = pickText(options, wanted)
+    if (hit) return hit
+
+    // Stop when scrolling stops revealing anything new, rather than when the
+    // scroll position stops changing. A list that has reached its end still
+    // accepts a larger scrollTop, and one that caps it still may not have
+    // moved; what matters either way is whether new rows appeared.
+    const seen = options.map((option) => option.label).join("|")
+    if (seen === lastSeen) return null
+    lastSeen = seen
+
+    const scroller = scrollerFor(menu)
+    scroller.scrollTop += Math.max(32, scroller.clientHeight)
+    scroller.dispatchEvent(new Event("scroll", { bubbles: true }))
+
+    await sleep(OPEN_WAIT_MS)
+  }
+
+  return null
+}
+
 /** Poll for options, since the menu populates a frame or two after opening. */
 async function waitForOptions(
   doc: Document,
@@ -321,8 +384,23 @@ function alreadyHolds(existing: string, wanted: string): boolean {
 
   if (!have || !want) return false
   if (have === want) return true
+  if (have.split(" ").includes(want)) return true
 
-  return have.split(" ").includes(want)
+  /**
+   * A multiselect reads back as its chosen values joined with commas, so one
+   * of those parts matching is a match.
+   *
+   * The whole-token test above cannot see a multi-word value inside that
+   * list: "Machine Learning" is not a token of "Python, Machine Learning,
+   * SQL". Comparing the parts is what lets a skills box past the first
+   * couple of entries.
+   */
+  return existing.split(",").some((part) => canonical(part) === want)
+}
+
+/** Whether a control's read-back already contains this exact value. */
+export function holdsValue(existing: string, wanted: string): boolean {
+  return alreadyHolds(existing, wanted)
 }
 
 export interface ComboboxResult {
@@ -476,6 +554,13 @@ export async function selectFromCombobox(
       choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
       if (choice) break
     }
+  }
+
+  /**
+   * Still nothing, and the list may simply be longer than what is rendered.
+   */
+  if (!choice && options.length > 0) {
+    choice = await scrollForOption(doc, input, stale, wanted, 1500)
   }
 
   if (!choice?.el) {

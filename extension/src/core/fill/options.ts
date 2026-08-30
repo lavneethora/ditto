@@ -163,7 +163,16 @@ function pickExactish(options: FieldOption[], value: string): FieldOption | null
   )
   if (reverse) return reverse
 
-  const wantedWords = wanted.split(" ").filter((w) => w.length > 2)
+  /**
+   * Short words count when they carry a number.
+   *
+   * The length filter is there so "of" and "the" do not decide a match, but
+   * it also threw away the only token that distinguished one option from
+   * another: "Skill 18" and "Skill 01" both reduced to the single word
+   * "skill" and scored a perfect overlap against each other. Anything with a
+   * digit in it is doing work, whatever its length.
+   */
+  const wantedWords = wanted.split(" ").filter((w) => w.length > 2 || /\d/.test(w))
   if (wantedWords.length === 0) return null
 
   let best: { option: FieldOption; score: number } | null = null

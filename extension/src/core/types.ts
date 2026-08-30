@@ -67,6 +67,7 @@ export const PROFILE_KEYS = [
   "personal.middleName",
   "personal.lastName",
   "personal.fullName",
+  "personal.hasPreferredName",
   "personal.preferredFirstName",
   "personal.preferredLastName",
   "personal.email",

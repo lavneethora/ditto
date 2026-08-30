@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 
 import { emptyProfile, type Profile } from "~profile/schema"
 import { ALL_RULES, assertRulesAreSound, BOOLEAN_KEYS, match } from "~core/match"
-import { resolve } from "~core/resolve"
+import { resolve, resolveUnmatched } from "~core/resolve"
 import type { FieldSpec } from "~core/types"
 
 /**
@@ -286,6 +286,60 @@ describe("voluntary demographic questions", () => {
 
     const spec = field("Do you have a disability?")
     expect(resolve(match(spec)!, spec, profile)).toEqual({ kind: "tristate", value: "decline" })
+  })
+})
+
+describe("the fixed answer prompts", () => {
+  /** Mirrors ANSWER_PROMPTS in AnswersSection. */
+  const PROMPTS = [
+    "When is the earliest you would want to start working with us?",
+    "Do you have any deadlines or timeline considerations we should be aware of?",
+    "Additional information"
+  ]
+
+  function withAnswers(): Profile {
+    const profile = emptyProfile()
+    profile.answers = PROMPTS.map((label, i) => ({
+      id: String(i),
+      label,
+      body: `answer ${i}`
+    }))
+    return profile
+  }
+
+  it.each(PROMPTS)("fills its own question: %s", (question) => {
+    const spec = field(question, { kind: "textarea" })
+    const matched = match(spec)
+    const resolved = matched
+      ? resolve(matched, spec, withAnswers())
+      : resolveUnmatched(spec, withAnswers())
+
+    expect(resolved.kind).toBe("text")
+  })
+
+  it("reaches a single-line input, not only a textarea", () => {
+    // Greenhouse renders the start-date question as a text input. Restricting
+    // saved answers to textareas made that prompt unfillable by design.
+    const spec = field(PROMPTS[0], { kind: "text" })
+    const resolved = resolveUnmatched(spec, withAnswers())
+
+    expect(resolved.kind).toBe("text")
+  })
+
+  it("does not answer a question about a specific employer", () => {
+    // The reason the prompts are fixed: a stored "why this company" answer
+    // would be the wrong answer everywhere except where it was written.
+    const spec = field("Why Anthropic?", { kind: "textarea" })
+    const resolved = resolveUnmatched(spec, withAnswers())
+
+    expect(resolved.kind).toBe("needs_you")
+  })
+
+  it("leaves an unanswered prompt to the user rather than writing nothing", () => {
+    const spec = field(PROMPTS[1], { kind: "textarea" })
+    const resolved = resolveUnmatched(spec, emptyProfile())
+
+    expect(resolved.kind).toBe("needs_you")
   })
 })
 

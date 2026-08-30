@@ -17,7 +17,16 @@ const CONTROL_SELECTOR = [
   "textarea",
   "[role='combobox']",
   "[role='listbox']",
-  "[aria-haspopup='listbox']"
+  "[aria-haspopup='listbox']",
+  // ARIA toggle groups. Ashby builds its Yes/No questions from two
+  // `aria-pressed` buttons over a display:none checkbox, so a scanner that
+  // only looks at real inputs sees nothing at all and the question never
+  // reaches the panel, in any bucket. A required field that is invisible to
+  // the report is worse than one reported as needing attention: the progress
+  // bar then says 100% over an incomplete form.
+  "[aria-pressed]",
+  "[role='radio']",
+  "[role='switch']"
 ].join(", ")
 
 /** Input types that are never a data field. */
@@ -90,7 +99,46 @@ function kindOf(el: Element): FieldKind | null {
     return "combobox"
   }
 
+  // A toggle button is one option of a choice, so it is scanned as part of a
+  // group in the same way a radio is.
+  if (el.hasAttribute("aria-pressed") || role === "radio" || role === "switch") {
+    return "radiogroup"
+  }
+
   return null
+}
+
+/** Whether a control is an ARIA toggle rather than a real `<input>`. */
+function isToggleElement(el: Element): boolean {
+  return (
+    !(el instanceof HTMLInputElement) &&
+    (el.hasAttribute("aria-pressed") ||
+      el.getAttribute("role") === "radio" ||
+      el.getAttribute("role") === "switch")
+  )
+}
+
+/**
+ * The toggles that make up one question.
+ *
+ * Grouped by the nearest container that holds more than one of them, which is
+ * how these are always built: a wrapper per question with an option inside it
+ * per choice.
+ */
+function toggleGroup(el: Element, root: Element): Element[] {
+  const SELECTOR = "[aria-pressed], [role='radio'], [role='switch']"
+  let container: Element | null = el.parentElement
+
+  for (let depth = 0; depth < 4 && container && container !== root; depth++) {
+    const found = Array.from(container.querySelectorAll(SELECTOR)).filter(
+      (candidate) => !(candidate instanceof HTMLInputElement)
+    )
+
+    if (found.length > 1) return found
+    container = container.parentElement
+  }
+
+  return [el]
 }
 
 function selectOptions(el: HTMLSelectElement): FieldOption[] {
@@ -166,6 +214,7 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
   const seenRadioGroups = new Set<string>()
   const seenCheckboxGroups = new Set<string>()
   const seenCheckboxContainers = new WeakSet<Element>()
+  const seenToggleGroups = new WeakSet<Element>()
 
   const candidates = Array.from(root.querySelectorAll(CONTROL_SELECTOR))
 
@@ -186,6 +235,37 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
     }
 
     if (isEffectivelyHidden(el)) continue
+
+    // ARIA toggle groups: emit once, keyed on the container.
+    if (kind === "radiogroup" && isToggleElement(el)) {
+      const toggles = toggleGroup(el, root)
+      const container = toggles[0]?.parentElement ?? el
+
+      if (seenToggleGroups.has(container)) continue
+      seenToggleGroups.add(container)
+
+      const rawGroupLabel =
+        adapter?.label?.(el, doc) ||
+        el.closest("fieldset")?.querySelector("legend")?.textContent ||
+        resolveGroupLabel(toggles) ||
+        resolveLabel(el, doc)
+
+      fields.push({
+        id: nextId("toggle"),
+        el: toggles[0] as FieldSpec["el"],
+        kind: "radiogroup",
+        label: normalizeLabel(rawGroupLabel),
+        required: isRequired(el, rawGroupLabel ?? ""),
+        section: resolveSection(el),
+        options: toggles.map((toggle) => ({
+          value: toggle.getAttribute("data-option") ?? (toggle as HTMLElement).innerText?.trim() ?? "",
+          label: ((toggle as HTMLElement).innerText ?? toggle.textContent ?? "").trim(),
+          el: toggle as HTMLElement
+        }))
+      })
+
+      continue
+    }
 
     // Radio groups: emit once, keyed on the shared name.
     if (kind === "radiogroup" && el instanceof HTMLInputElement) {

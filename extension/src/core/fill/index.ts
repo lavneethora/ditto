@@ -78,7 +78,7 @@ function asChoice(resolved: Resolved): string | boolean | null {
 
 export async function fill(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {
   // Non-value outcomes pass straight through to the report.
-  if (resolved.kind === "none" || resolved.kind === "opted_out") {
+  if (resolved.kind === "none") {
     return { kind: "skipped", reason: resolved.reason }
   }
 

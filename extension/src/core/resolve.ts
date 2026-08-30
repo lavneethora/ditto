@@ -239,7 +239,11 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
  * cannot anticipate.
  */
 export function resolveUnmatched(field: FieldSpec, profile: Profile): Resolved {
-  if (field.kind !== "textarea") {
+  // Text inputs count, not just textareas. Greenhouse renders "When is the
+  // earliest you would want to start working with us?" as a single-line input,
+  // so restricting this to textareas made the saved answer for exactly that
+  // question unreachable.
+  if (field.kind !== "textarea" && field.kind !== "text") {
     return { kind: "needs_you", reason: "Ditto does not recognise this field" }
   }
 

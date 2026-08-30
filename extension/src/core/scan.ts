@@ -1,5 +1,5 @@
 import { isForbidden } from "./blocklist"
-import { isRequired, normalizeLabel, resolveLabel, resolveSection } from "./label"
+import { isRequired, normalizeLabel, resolveGroupLabel, resolveLabel, resolveSection } from "./label"
 import type { Adapter, FieldKind, FieldOption, FieldSpec } from "./types"
 
 /**
@@ -202,8 +202,10 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
       // The group's question is the fieldset legend or container text, not the
       // label of whichever radio happened to come first.
       const rawGroupLabel =
-        adapter?.label?.(el, doc) ??
-        el.closest("fieldset")?.querySelector("legend")?.textContent ??
+        adapter?.label?.(el, doc) ||
+        el.closest("fieldset")?.querySelector("legend")?.textContent ||
+        // The question is the container text minus the options' own text.
+        resolveGroupLabel(radios) ||
         resolveLabel(radios[0]?.parentElement ?? el, doc)
 
       const label = normalizeLabel(rawGroupLabel || resolveLabel(el, doc))
@@ -236,7 +238,9 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
         if (seenCheckboxGroups.has(el.name)) continue
         seenCheckboxGroups.add(el.name)
 
-        const groupLabel = normalizeLabel(adapter?.label?.(el, doc) ?? resolveLabel(el, doc))
+        const groupLabel = normalizeLabel(
+          adapter?.label?.(el, doc) || resolveGroupLabel(boxes) || resolveLabel(el, doc)
+        )
 
         fields.push({
           id: nextId("checkboxes"),

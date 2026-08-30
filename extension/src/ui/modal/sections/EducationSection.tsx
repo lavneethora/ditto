@@ -44,7 +44,7 @@ export function EducationSection({ profile, update }: SectionProps) {
               required
               value={item.school}
               onChange={(v) => patch(item.id, { school: v })}
-              placeholder="Texas Tech University"
+              placeholder="State University"
             />
 
             <div className="ditto-grid ditto-grid--3">
@@ -65,7 +65,7 @@ export function EducationSection({ profile, update }: SectionProps) {
                 label="GPA"
                 value={item.gpa}
                 onChange={(v) => patch(item.id, { gpa: v })}
-                placeholder="3.94"
+                placeholder="3.80"
               />
             </div>
 

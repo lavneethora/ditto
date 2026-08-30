@@ -156,8 +156,8 @@ describe("field recognition", () => {
     ["City", "personal.city"],
     ["State", "personal.state"],
     ["Postal Code", "personal.postalCode"],
-    ["LinkedIn Profile", "links.linkedin"],
-    ["GitHub URL", "links.github"],
+    ["LinkedIn Profile", "personal.linkedin"],
+    ["GitHub URL", "personal.github"],
     ["School", "education[].school"],
     ["University", "education[].school"],
     ["GPA", "education[].gpa"],
@@ -165,9 +165,9 @@ describe("field recognition", () => {
     ["Field of Study", "education[].major"],
     ["Company", "work[].company"],
     ["Job Title", "work[].title"],
-    ["How Did You Hear About Us?", "preferences.howDidYouHear"],
-    ["Desired Salary", "preferences.desiredSalary"],
-    ["Are you willing to relocate?", "preferences.willingToRelocate"],
+    ["Do you identify as LGBTQ+?", "eeo.lgbtq"],
+    ["What are your pronouns?", "eeo.pronouns"],
+    ["How would you describe your sexual orientation?", "eeo.sexualOrientation"],
     ["Do you have a disability?", "eeo.disability"],
     ["Are you a protected veteran?", "eeo.veteran"],
     ["Gender", "eeo.gender"],
@@ -209,9 +209,13 @@ describe("date disambiguation by section", () => {
     expect(match(spec)?.key).toBe("work[].startDate")
   })
 
-  it("reads a bare availability question as a preference", () => {
+  it("leaves a bare availability question unmatched", () => {
+    // The Preference section was cut, so there is no stored start date and
+    // nothing to write. This has to stay unmatched rather than borrowing a
+    // date from education or work, which would be a claim about availability
+    // the user never made. It surfaces as NEEDS YOU.
     const spec = field("When can you start?", { kind: "date" })
-    expect(match(spec)?.key).toBe("preferences.earliestStartDate")
+    expect(match(spec)).toBeNull()
   })
 
   it("keeps graduation dates on the education key", () => {
@@ -236,7 +240,7 @@ describe("repeatable entries", () => {
   it("falls back to the first entry when there is no index", () => {
     const profile = emptyProfile()
     profile.work = [
-      { id: "a", company: "UTHealth Houston", title: "Research Intern", location: "Houston, TX", startDate: "", endDate: "", current: false, summary: "" }
+      { id: "a", company: "UTHealth Houston", title: "Research Intern", location: "Houston, TX", startDate: "", endDate: "", current: false, summary: "", bullets: [] }
     ]
 
     const spec = field("Company", { kind: "text" })
@@ -246,7 +250,7 @@ describe("repeatable entries", () => {
   it("leaves the end date of a current role empty", () => {
     const profile = emptyProfile()
     profile.work = [
-      { id: "a", company: "Acme", title: "Engineer", location: "", startDate: "2026-06", endDate: "2026-08", current: true, summary: "" }
+      { id: "a", company: "Acme", title: "Engineer", location: "", startDate: "2026-06", endDate: "2026-08", current: true, summary: "", bullets: [] }
     ]
 
     const spec = field("End Date", { kind: "month", section: "Work Experience 1", repeatIndex: 0 })

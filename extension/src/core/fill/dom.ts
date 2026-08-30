@@ -96,7 +96,29 @@ export async function typeSequentially(
  */
 export function safeClick(el: Element): void {
   assertAllowed(el)
-  ;(el as HTMLElement).click()
+
+  // Cancel any submission this click provokes.
+  //
+  // Not paranoia: Ashby's Yes/No toggles are `type="submit"` buttons sitting
+  // inside the form, and they only fail to submit because Ashby calls
+  // preventDefault in its own handler. Relying on someone else's handler for
+  // a non-negotiable is not a guarantee. This makes it one, and it costs
+  // nothing on the radios and checkboxes that never submit anyway.
+  const form = el.closest("form")
+  const block = (event: Event) => {
+    event.preventDefault()
+    event.stopImmediatePropagation()
+  }
+
+  form?.addEventListener("submit", block, true)
+
+  try {
+    ;(el as HTMLElement).click()
+  } finally {
+    // After the current task, so a handler that submits asynchronously in
+    // direct response to this click is still caught.
+    setTimeout(() => form?.removeEventListener("submit", block, true), 0)
+  }
 }
 
 /**

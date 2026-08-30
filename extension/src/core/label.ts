@@ -309,12 +309,52 @@ export function resolveSection(el: Element): string | undefined {
  * is how Greenhouse and Workday both actually mark required fields regardless
  * of what the attributes say.
  */
+/**
+ * Every label element that names this control.
+ *
+ * Read raw, marks and all. `ownText` strips `aria-hidden` nodes because a
+ * screen reader must not hear decoration, and the required asterisk is almost
+ * always `aria-hidden` (the requirement reaches assistive tech through
+ * `aria-required` instead). That is correct for naming and wrong for deciding
+ * whether a field is required, so this reads the elements directly.
+ */
+function associatedLabels(el: Element): Element[] {
+  const doc = el.ownerDocument
+  const found: Element[] = []
+
+  if (el.id) {
+    for (const label of doc.querySelectorAll(`label[for="${CSS.escape(el.id)}"]`)) found.push(label)
+  }
+
+  const wrapping = el.closest("label")
+  if (wrapping) found.push(wrapping)
+
+  for (const id of (el.getAttribute("aria-labelledby") ?? "").split(/\s+/).filter(Boolean)) {
+    const target = doc.getElementById(id)
+    if (target) found.push(target)
+  }
+
+  return found
+}
+
 export function isRequired(el: Element, label: string): boolean {
   if (el.hasAttribute("required")) return true
   if (el.getAttribute("aria-required") === "true") return true
 
+  // An explicit false is the author saying optional, and it outranks every
+  // inference below. Workday sets it on Middle Name and Phone Extension,
+  // which share a wrapper with required siblings, so any rule that reaches
+  // for a nearby asterisk marks them required and the drawer then reports a
+  // form as incomplete that is not.
+  if (el.getAttribute("aria-required") === "false") return false
+
   // The raw label still carries its marker; the normalized one does not.
   if (new RegExp(REQUIRED_MARKS.source).test(label)) return true
+
+  // The marker survives here even when it was stripped from the label string.
+  for (const element of associatedLabels(el)) {
+    if (new RegExp(REQUIRED_MARKS.source).test(element.textContent ?? "")) return true
+  }
 
   const container = el.closest("[class*='required'], [data-required='true']")
   if (container) return true
@@ -325,3 +365,4 @@ export function isRequired(el: Element, label: string): boolean {
 
   return false
 }
+

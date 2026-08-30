@@ -46,7 +46,7 @@ const MAX_WAIT_MS = 1500
  * and a field that cannot be filled must not take eight seconds to say so.
  */
 const SEARCH_WAIT_MS = 2000
-const SEARCH_BUDGET_MS = 3500
+const SEARCH_BUDGET_MS = 2800
 
 /**
  * How long to wait, in total, for a click to show up in the control.
@@ -405,15 +405,17 @@ export async function selectFromCombobox(
     }
   }
 
-  if (!opened) {
-    // A box with no menu at all can still be one that pockets what you type.
-    // Workday's Skills showed nothing on screen for "supabase" and accepted
-    // it on Enter, so "no menu" is not the same as "nothing can be done".
-    if (isTextInput) {
-      const accepted = await commitTypedText(doc, input as HTMLInputElement, wanted, stale)
-      if (accepted) return { ok: true, value: wanted }
-    }
-
+  /**
+   * Not opening is not fatal, because on these boxes there is nothing to open
+   * yet.
+   *
+   * Workday's School list does not exist until a search has run, so pressing
+   * the box produces no menu and never will. Treating that as the end of the
+   * attempt meant the typing below, which is what creates the list, was never
+   * reached. `opened` is kept only to say something accurate if everything
+   * fails.
+   */
+  if (!opened && !isTextInput) {
     return { ok: false, reason: "Could not open the dropdown" }
   }
 
@@ -442,7 +444,27 @@ export async function selectFromCombobox(
       if (left <= 0) break
 
       await typeSequentially(input as HTMLInputElement, query)
-      options = await waitForOptions(doc, input, Math.min(SEARCH_WAIT_MS, left), stale)
+
+      // A short look first, for the boxes that filter as you type. Lever's
+      // location typeahead is one of those and must not be sent an Enter it
+      // did not ask for.
+      options = await waitForOptions(doc, input, Math.min(600, left), stale)
+
+      /**
+       * Enter to RUN the search, for the boxes that do not filter as you type.
+       *
+       * This is the step that was missing, and everything downstream was
+       * built on its absence. Workday's School box shows nothing at all for a
+       * query sitting complete in the input: the list only appears once the
+       * query is submitted, which is exactly what the instructions above the
+       * field describe. Ditto typed, waited for a list that was never coming,
+       * concluded there were no results, and pressed Enter later only as a
+       * way of committing an option it had already failed to find.
+       */
+      if (options.length === 0) {
+        pressKey(input, "Enter", 13)
+        options = await waitForOptions(doc, input, Math.max(0, deadline - Date.now()), stale)
+      }
 
       choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
       if (choice) break
@@ -472,9 +494,11 @@ export async function selectFromCombobox(
     return {
       ok: false,
       reason:
-        options.length === 0
-          ? "The dropdown opened but returned no results"
-          : `Opened the dropdown but found no option matching "${wanted}"`
+        options.length > 0
+          ? `Opened the dropdown but found no option matching "${wanted}"`
+          : opened
+            ? "The dropdown opened but returned no results"
+            : "Could not open the dropdown"
     }
   }
 
@@ -552,7 +576,7 @@ async function commitTypedText(
   // A short budget. This is the last thing tried before giving up, and a
   // widget that takes typed text does so immediately; waiting longer only
   // slows down every field that genuinely cannot be filled.
-  if (!(await waitUntil(took, 800))) return false
+  if (!(await waitUntil(took, 600))) return false
 
   closeMenu(doc, input, stale, took)
   return true

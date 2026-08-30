@@ -58,7 +58,7 @@ const { scan } = await import("../src/core/scan")
 /** Fixtures are named after the ATS, which is enough to pick a plausible URL. */
 function urlFor(file: string): string {
   if (file.startsWith("greenhouse")) return "https://job-boards.greenhouse.io/example/jobs/1"
-  if (file.startsWith("lever")) return "https://jobs.lever.co/example/1/apply"
+  if (file.startsWith("lever")) return "https://jobs.lever.co/example/abc123/apply"
   if (file.startsWith("ashby")) return "https://jobs.ashbyhq.com/example/1"
   if (file.startsWith("workday")) return "https://example.wd1.myworkdayjobs.com/en-US/careers/job/1"
   return dom.window.location.href

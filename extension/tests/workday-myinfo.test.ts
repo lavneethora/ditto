@@ -3,6 +3,7 @@ import { resolve as resolvePath } from "node:path"
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { workday } from "~adapters"
+import { readComboboxValue } from "~core/fill/combobox"
 import { match } from "~core/match"
 import { scan } from "~core/scan"
 
@@ -173,5 +174,39 @@ describe("the wizard", () => {
     byId("pageFooterNextButton").textContent = "Submit"
 
     expect(workday.nextControl?.(document)).toBeNull()
+  })
+})
+
+describe("reading a Workday value back", () => {
+  /**
+   * Verification is the only path to `filled`. Neither of these widgets is an
+   * input, so every branch of the generic read-back returned nothing and a
+   * pick that worked would have verified as an error.
+   */
+
+  it("reads a listbox button from its own text", () => {
+    expect(readComboboxValue(byId("formField-country").querySelector("button")!)).toBe(
+      "United States of America"
+    )
+  })
+
+  it("treats Select One as empty, not as a value", () => {
+    // The unfilled State button. Reporting its placeholder as the value would
+    // confirm any fill at all, including one that did nothing.
+    expect(readComboboxValue(byId("formField-countryRegion").querySelector("button")!)).toBe("")
+  })
+
+  it("reads a multiselect from its pills, not its search box", () => {
+    // The search input is empty after a selection; the value is in the pill.
+    const search = document.querySelector<HTMLElement>("#phoneNumber--countryPhoneCode")!
+
+    expect((search as HTMLInputElement).value).toBe("")
+    expect(readComboboxValue(search)).toBe("United States of America (+1)")
+  })
+
+  it("reads an empty multiselect as empty", () => {
+    const search = document.querySelector<HTMLElement>("#source--source")!
+
+    expect(readComboboxValue(search)).toBe("")
   })
 })

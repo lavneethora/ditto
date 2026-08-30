@@ -83,3 +83,30 @@ describe("adding several values to one control", () => {
     expect(outcome.kind).toBe("skipped")
   })
 })
+
+describe("what a role description falls back to", () => {
+  /**
+   * Reported live: every Role Description on a three job history came back
+   * empty, reported as "no experience summary saved", while the user could
+   * see the bullets sitting in their profile.
+   */
+
+  it("uses the bullets as lines when no paragraph is saved", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML("afterbegin", `<textarea id="role"></textarea>`)
+
+    const outcome = await fill(
+      {
+        id: "r",
+        el: document.getElementById("role")!,
+        kind: "textarea",
+        label: "Role Description",
+        required: false
+      } as FieldSpec,
+      { kind: "text", value: "Built the thing\nShipped the thing" }
+    )
+
+    expect(outcome.kind).toBe("wrote")
+    expect((document.getElementById("role") as HTMLTextAreaElement).value).toContain("Shipped")
+  })
+})

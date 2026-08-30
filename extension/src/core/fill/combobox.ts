@@ -23,7 +23,17 @@ import { pickText } from "./options"
  */
 
 const OPEN_WAIT_MS = 60
-const MAX_WAIT_MS = 600
+
+/**
+ * How long to wait for a menu to populate.
+ *
+ * Generous because some of these are network-backed: Lever's location
+ * typeahead queries a places service, so its results are not in the DOM for
+ * several hundred milliseconds after the keystroke. Too short a wait reads an
+ * empty menu and reports that nothing matched, which is a lie about the
+ * widget rather than about the value.
+ */
+const MAX_WAIT_MS = 1500
 
 function sleep(ms: number): Promise<void> {
   return new Promise((done) => setTimeout(done, ms))
@@ -35,6 +45,10 @@ const MENU_SELECTORS = [
   ".select__menu",
   "[class*='menu-list']",
   "[class*='__menu']",
+  // Lever's location typeahead. Its results only exist after a query
+  // resolves, which is why the wait loop below polls rather than reads once.
+  ".dropdown-container",
+  "[class*='dropdown-results']",
   "[data-automation-id='activeListContainer']"
 ].join(", ")
 
@@ -42,6 +56,7 @@ const OPTION_SELECTORS = [
   "[role='option']",
   ".select__option",
   "[class*='__option']",
+  "[class*='dropdown-result']:not([class*='results'])",
   "[data-automation-id='promptOption']",
   "li"
 ].join(", ")
@@ -78,6 +93,13 @@ function readOptions(menu: Element): FieldOption[] {
       el: el as HTMLElement
     }))
     .filter((option) => option.label.length > 0)
+    // A typeahead renders its empty and loading states as siblings of the
+    // results. Selecting "No location found. Try entering a different
+    // location" would be worse than selecting nothing.
+    .filter((option) => {
+      const cls = option.el?.className ?? ""
+      return !/no-results|loading|empty|placeholder|disabled/i.test(String(cls))
+    })
 }
 
 /** Poll for options, since the menu populates a frame or two after opening. */

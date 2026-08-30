@@ -12,11 +12,20 @@
  * that yields non-empty text wins.
  */
 
+/**
+ * Every character seen used as a "this field is required" marker.
+ *
+ * Not just the ASCII asterisk: Lever marks required fields with U+2731 HEAVY
+ * ASTERISK, so a label comes through as "Full name\u2731" and a required check
+ * that only knows about `*` misses it entirely.
+ */
+const REQUIRED_MARKS = /[*\u2217\u2731\u2732\u2733\uff0a\u066d]/g
+
 /** Collapse whitespace, drop the required marker, normalize punctuation. */
 export function normalizeLabel(raw: string): string {
   return raw
     .replace(/[\u00a0\u200b]/g, " ")
-    .replace(/\*/g, " ")
+    .replace(REQUIRED_MARKS, " ")
     .replace(/\(required\)|\(optional\)/gi, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -229,14 +238,15 @@ export function isRequired(el: Element, label: string): boolean {
   if (el.hasAttribute("required")) return true
   if (el.getAttribute("aria-required") === "true") return true
 
-  // The raw label still has its asterisk; the normalized one does not.
-  if (/\*/.test(label)) return true
+  // The raw label still carries its marker; the normalized one does not.
+  if (new RegExp(REQUIRED_MARKS.source).test(label)) return true
 
   const container = el.closest("[class*='required'], [data-required='true']")
   if (container) return true
 
   const wrapper = el.closest("label, div, fieldset")
-  if (wrapper && /\*/.test(wrapper.querySelector("label, legend")?.textContent ?? "")) return true
+  const wrapperLabel = wrapper?.querySelector("label, legend, .application-label")?.textContent ?? ""
+  if (new RegExp(REQUIRED_MARKS.source).test(wrapperLabel)) return true
 
   return false
 }

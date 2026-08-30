@@ -114,7 +114,7 @@ function guessMimeType(filename: string): string {
   return "application/octet-stream"
 }
 
-/** "Hora_Lavneet_Resume.pdf, 284 KB" for the drawer row. */
+/** "Resume.pdf, 284 KB" for the drawer row. */
 export function describeResume(resume: Resume | null): string {
   if (!resume) return "No resume uploaded"
 

@@ -115,12 +115,17 @@ let totalFound = 0
 let totalKnown = 0
 
 for (const row of rows) {
-  const rate = row.found === 0 ? 0 : Math.round((row.recognized / row.found) * 100)
+  // A fixture with no fields is not a fixture that scored zero. The Workday
+  // sign-in page is captured precisely so the adapter can be held to finding
+  // nothing on it, and printing that as 0% turns a passing guarantee into
+  // what looks like a regression.
+  const rate = row.found === 0 ? "  n/a" : `${Math.round((row.recognized / row.found) * 100)}%`
+
   totalFound += row.found
   totalKnown += row.recognized
 
   console.log(
-    `${pad(basename(row.fixture), 30)}${pad(row.ats, 14)}${pad(String(row.found), 8)}${pad(String(row.recognized), 8)}${rate}%`
+    `${pad(basename(row.fixture), 30)}${pad(row.ats, 14)}${pad(String(row.found), 8)}${pad(String(row.recognized), 8)}${rate}`
   )
 
   for (const label of row.unmatched) {

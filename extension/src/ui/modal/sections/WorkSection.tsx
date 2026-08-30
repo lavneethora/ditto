@@ -18,7 +18,7 @@ function Bullets({
 }) {
   return (
     <div className="ditto-field">
-      <span className="ditto-label">Job description</span>
+      <span className="ditto-label">Job Description</span>
 
       {values.map((bullet, index) => (
         <div key={index} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
@@ -98,7 +98,7 @@ export function WorkSection({ profile, update }: SectionProps) {
                 placeholder="Acme Corporation"
               />
               <TextInput
-                label="Job title"
+                label="Job Title"
                 required
                 value={item.title}
                 onChange={(v) => patch(item.id, { title: v })}
@@ -115,12 +115,12 @@ export function WorkSection({ profile, update }: SectionProps) {
 
             <div className="ditto-grid ditto-grid--2">
               <MonthInput
-                label="Start date"
+                label="Start Date"
                 value={item.startDate}
                 onChange={(v) => patch(item.id, { startDate: v })}
               />
               <MonthInput
-                label="End date"
+                label="End Date"
                 value={item.current ? "" : item.endDate}
                 disabled={item.current}
                 onChange={(v) => patch(item.id, { endDate: v })}
@@ -134,13 +134,15 @@ export function WorkSection({ profile, update }: SectionProps) {
               onChange={(v) => patch(item.id, { current: v })}
             />
 
+            {/* Deliberately short. The bullets below are the primary way to
+                describe a role; this is the fallback for the minority of forms
+                that want one paragraph, so it should not invite an essay. */}
             <TextArea
-              label="Experience summary"
+              label="Experience Summary"
               value={item.summary}
               onChange={(v) => patch(item.id, { summary: v })}
-              placeholder="What you built and what it changed."
-              hint="Used when a form wants a single paragraph."
-              rows={3}
+              placeholder="Summarize your experience"
+              rows={2}
             />
 
             <Bullets

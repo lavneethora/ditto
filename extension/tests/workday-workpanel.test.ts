@@ -139,3 +139,31 @@ describe("writing a date into separate boxes", () => {
     expect((document.getElementById("day-box") as HTMLInputElement).value).toBe("")
   })
 })
+
+describe("counting panels in a section", () => {
+  /**
+   * Reported live: a profile with three jobs got one panel. Every date inside
+   * a panel is also a `role="group"` with an `aria-labelledby`, so one filled
+   * panel counted as three and the growth stopped believing it was done.
+   */
+
+  const section = () =>
+    document.querySelector("[role='group'][aria-labelledby='Work-Experience-section']")!
+
+  beforeEach(() => {
+    // repeatables only claims a section it can grow, so it needs the button.
+    section().insertAdjacentHTML(
+      "beforeend",
+      `<button data-automation-id="add-button">Add Another</button>`
+    )
+  })
+
+  it("counts one panel, not the two dates inside it", () => {
+    // The raw count is deliberately asserted too, so the reason this is not
+    // just querySelectorAll stays visible.
+    expect(section().querySelectorAll("[role='group'][aria-labelledby]")).toHaveLength(3)
+
+    const work = workday.repeatables?.(document)?.find((s) => s.collection === "work")
+    expect(work?.present).toBe(1)
+  })
+})

@@ -109,3 +109,75 @@ describe("finding an option below the fold", () => {
     expect(document.getElementById("chosen")!.children).toHaveLength(3)
   })
 })
+
+describe("a search that takes a moment to answer", () => {
+  /**
+   * Reported live on the Skills box: some values went in, and for others the
+   * list was still populating when Ditto looked, so it read what was there,
+   * found nothing, and moved on to the next skill.
+   *
+   * The list showing a moment after typing is either the previous query's
+   * results or this one's half rendered. Neither is an answer.
+   */
+
+  /** Results arrive late, and the stale list is on screen until they do. */
+  function slowSearch(): HTMLInputElement {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-uxi-widget-type="multiselect">
+         <input id="skills" type="text" placeholder="Search">
+         <ul role="listbox" data-automation-id="selectedItemList" id="chosen"></ul>
+       </div>
+       <div data-popper-placement="top">
+         <div data-automation-id="activeListContainer" role="listbox" id="menu">
+           <div role="option"><div data-automation-id="promptOption" data-automation-label="Stale Result">Stale Result</div></div>
+         </div>
+       </div>`
+    )
+
+    const input = document.getElementById("skills") as HTMLInputElement
+    const menu = document.getElementById("menu")!
+
+    let pending: ReturnType<typeof setTimeout> | undefined
+
+    input.addEventListener("input", () => {
+      if (!input.value) return
+      clearTimeout(pending)
+
+      // Half a second before this query's own results replace the last set.
+      pending = setTimeout(() => {
+        menu.innerHTML = `<div role="option"><div data-automation-id="promptOption" data-automation-label="${input.value}">${input.value}</div></div>`
+
+        menu.querySelector<HTMLElement>("[data-automation-id='promptOption']")!.addEventListener(
+          "click",
+          () => {
+            const name = input.value
+            document
+              .getElementById("chosen")!
+              .insertAdjacentHTML(
+                "beforeend",
+                `<li><p data-automation-id="promptOption" data-automation-label="${name}">${name}</p></li>`
+              )
+            input.value = ""
+          }
+        )
+      }, 500)
+    })
+
+    return input
+  }
+
+  it("waits for this query's results instead of taking the last one's", async () => {
+    const result = await selectFromCombobox(slowSearch(), "Kubernetes")
+
+    expect(result.ok).toBe(true)
+    expect(document.getElementById("chosen")!.textContent).toBe("Kubernetes")
+  })
+
+  it("never selects the result left over from the previous value", async () => {
+    await selectFromCombobox(slowSearch(), "Kubernetes")
+
+    expect(document.getElementById("chosen")!.textContent).not.toContain("Stale")
+  })
+})

@@ -1,4 +1,5 @@
 import { readComboboxValue } from "./fill/combobox"
+import { relocate } from "./fill/dom"
 import { canonical } from "./label"
 import type { AttemptOutcome, FieldSpec, FillResult, ProfileKey } from "./types"
 
@@ -20,10 +21,11 @@ import type { AttemptOutcome, FieldSpec, FillResult, ProfileKey } from "./types"
 
 /** Reads the current value back out of a control. */
 function readBack(field: FieldSpec): string | null {
-  const el = field.el
-
-  // A control removed from the document during the fill cannot be confirmed.
-  if (!el.isConnected) return null
+  // The element may have been replaced rather than updated. A control that is
+  // genuinely gone cannot be confirmed; one that was merely re-rendered can,
+  // and reporting the two the same way calls six correct fields failures.
+  const el = relocate(field.el)
+  if (!el) return null
 
   switch (field.kind) {
     case "text":
@@ -39,7 +41,8 @@ function readBack(field: FieldSpec): string | null {
     }
 
     case "radiogroup": {
-      const chosen = field.options?.find((option) => {
+      const chosen = field.options?.find((candidate) => {
+        const option = { ...candidate, el: candidate.el ? relocate(candidate.el) : null }
         if (!option.el) return false
 
         // A real radio records its state in `checked`; an ARIA toggle records

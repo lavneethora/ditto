@@ -111,6 +111,10 @@ export const PROFILE_KEYS = [
   "eeo.sexualOrientation",
   "eeo.pronouns",
 
+  "preferences.willingToRelocate",
+  "preferences.howDidYouHear",
+  "preferences.desiredSalary",
+
   "answers",
   "resume"
 ] as const

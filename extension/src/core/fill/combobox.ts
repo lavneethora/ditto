@@ -115,9 +115,22 @@ async function waitForOptions(
 
   while (Date.now() < deadline) {
     const menu = findOpenMenu(doc, control)
+
     if (menu) {
       const options = readOptions(menu)
-      if (options.length > 0) return options
+
+      if (options.length > 0) {
+        // Let the list settle before handing it out. A search-backed menu
+        // often paints a first batch and then replaces it, and an option
+        // captured from the discarded render is detached by the time it is
+        // clicked, so the click silently does nothing.
+        await sleep(OPEN_WAIT_MS * 2)
+
+        const settled = findOpenMenu(doc, control)
+        const after = settled ? readOptions(settled) : []
+
+        return after.length > 0 ? after : options
+      }
     }
 
     await sleep(OPEN_WAIT_MS)
@@ -129,6 +142,12 @@ async function waitForOptions(
 /** Dispatch a full pointer and mouse sequence, which is what these widgets listen for. */
 function pressPointer(el: Element): void {
   const options = { bubbles: true, cancelable: true, button: 0, isPrimary: true } as const
+
+  // Hover first. Some lists only commit the option they consider active, and
+  // they decide that from pointer movement rather than from the click target.
+  el.dispatchEvent(new PointerEvent("pointerover", options))
+  el.dispatchEvent(new MouseEvent("mouseover", options))
+  el.dispatchEvent(new MouseEvent("mousemove", options))
 
   el.dispatchEvent(new PointerEvent("pointerdown", options))
   el.dispatchEvent(new MouseEvent("mousedown", options))
@@ -231,17 +250,81 @@ export async function selectFromCombobox(
     return { ok: false, reason: `Opened the dropdown but found no option matching "${wanted}"` }
   }
 
-  // Options usually commit on mousedown, not click.
-  pressPointer(choice.el)
-  await sleep(OPEN_WAIT_MS)
+  const committed = await commit(doc, input, choice)
 
-  // Enter as a fallback for widgets that commit the highlighted option.
-  if (findOpenMenu(doc, input)) {
-    pressKey(input, "Enter", 13)
-    await sleep(OPEN_WAIT_MS)
+  if (!committed) {
+    // Honest failure rather than a claim the caller would have to disprove.
+    // Left uncommitted, the widget clears itself the moment focus moves on,
+    // and the panel would be reporting a value the form never received.
+    return {
+      ok: false,
+      reason: `Found "${choice.label}" but the dropdown would not commit it`
+    }
   }
 
   return { ok: true, value: choice.label }
+}
+
+/**
+ * Click the option and confirm something actually took.
+ *
+ * Returning as soon as the click is dispatched is not good enough. A stale
+ * option element, a list that re-rendered mid-selection, or a widget that
+ * wants a keyboard commit all produce a click that does nothing, and these
+ * controls then wipe themselves as soon as focus moves to the next field. The
+ * result is a value reported as written against a field that ends up empty.
+ *
+ * So each strategy is followed by a read, and the option is re-found by its
+ * text right before use, because the reference captured a moment ago may
+ * belong to a render that no longer exists.
+ */
+async function commit(
+  doc: Document,
+  input: HTMLElement,
+  choice: FieldOption
+): Promise<boolean> {
+  const before = readComboboxValue(input)
+
+  const fresh = (): HTMLElement | null => {
+    const menu = findOpenMenu(doc, input)
+    if (!menu) return choice.el ?? null
+
+    const match = Array.from(menu.querySelectorAll<HTMLElement>(OPTION_SELECTORS)).find(
+      (el) => (el.innerText ?? el.textContent ?? "").trim() === choice.label
+    )
+
+    return match ?? choice.el ?? null
+  }
+
+  const took = () => {
+    const now = readComboboxValue(input)
+    return Boolean(now) && now !== before
+  }
+
+  const target = fresh()
+  if (target) {
+    pressPointer(target)
+    await sleep(OPEN_WAIT_MS * 2)
+    if (took()) return true
+  }
+
+  // Keyboard commit, for lists that only accept their highlighted option.
+  input.focus?.()
+  pressKey(input, "ArrowDown", 40)
+  await sleep(OPEN_WAIT_MS)
+  pressKey(input, "Enter", 13)
+  await sleep(OPEN_WAIT_MS * 2)
+  if (took()) return true
+
+  // One more click, in case the first landed during a re-render.
+  const retry = fresh()
+  if (retry) {
+    pressPointer(retry)
+    await sleep(OPEN_WAIT_MS * 3)
+    if (took()) return true
+  }
+
+  return false
 }
 
 /**

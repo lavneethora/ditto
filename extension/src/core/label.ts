@@ -60,6 +60,22 @@ function byAriaLabelledBy(el: Element, doc: Document): string {
   )
 }
 
+/**
+ * Label from an enclosing `role="group"` that names itself via aria-labelledby.
+ *
+ * This is how Greenhouse labels its resume upload: the `<input type=file>` is
+ * visually hidden with its own label reading only "Attach", while the useful
+ * text, "Resume/CV", sits on the wrapping group. Three other buttons in that
+ * group are also labelled "Attach", so the input's own label is both useless
+ * for matching and wrong in the drawer.
+ */
+function byGroupLabel(el: Element, doc: Document): string {
+  const group = el.closest("[role='group'][aria-labelledby], fieldset[aria-labelledby]")
+  if (!group) return ""
+
+  return byAriaLabelledBy(group, doc)
+}
+
 function byLabelFor(el: Element, doc: Document): string {
   const id = el.getAttribute("id")
   if (!id) return ""
@@ -143,11 +159,18 @@ function byAttributes(el: Element): string {
  * Workday sets both and only the former carries the question text.
  */
 export function resolveLabel(el: Element, doc: Document = el.ownerDocument): string {
+  // A file input's own label is almost always a generic verb ("Attach",
+  // "Upload", "Choose file") shared with sibling buttons, so the enclosing
+  // group's label is both more specific and more accurate.
+  const isFileInput = el instanceof HTMLInputElement && el.type === "file"
+
   const strategies = [
+    ...(isFileInput ? [() => byGroupLabel(el, doc)] : []),
     () => byAriaLabelledBy(el, doc),
     () => byLabelFor(el, doc),
     () => byWrappingLabel(el),
     () => byFieldsetLegend(el),
+    () => byGroupLabel(el, doc),
     () => byFieldContainer(el),
     () => byAttributes(el)
   ]

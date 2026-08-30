@@ -95,7 +95,6 @@ export function EeoSection({ profile, update }: SectionProps) {
             value={eeo.requiresSponsorship}
             options={YES_NO}
             onChange={(v) => set({ requiresSponsorship: v })}
-            hint="Kept separate from the question above on purpose. Both can be yes."
           />
         </div>
       </div>

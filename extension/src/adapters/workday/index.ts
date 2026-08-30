@@ -58,6 +58,9 @@ const FIELD_NAMES: Record<string, ProfileKey> = {
   // Workday's "Field of Study" is the profile's major.
   fieldOfStudy: "education[].major",
   skills: "skills",
+  // A bare URL box in the Websites section. Which link it wants is decided by
+  // which panel it is in, not by anything the field says.
+  url: "personal.link",
 
   phoneNumber: "personal.phone",
   phoneType: "personal.phoneType",
@@ -177,9 +180,9 @@ export const workday: Adapter = {
    *
    * Workday ships Work Experience, Certifications, Languages and Websites as a
    * heading and an "Add" button with nothing behind them, and Education as one
-   * panel with "Add Another" below it. Only the two the profile has entries
-   * for are claimed here; the rest stay the user's to fill, because Ditto has
-   * nothing to put in them.
+   * panel with "Add Another" below it. Only the three the profile has answers
+   * for are claimed here; Certifications and Languages stay the user's,
+   * because Ditto has nothing to put in them.
    *
    * Panels are counted as nested groups. The section itself is a
    * `role="group"` labelled "Education", and each entry inside it is another
@@ -193,7 +196,13 @@ export const workday: Adapter = {
       const name = heading?.textContent?.trim().toLowerCase() ?? ""
 
       const collection =
-        name === "work experience" ? "work" : name === "education" ? "education" : null
+        name === "work experience"
+          ? "work"
+          : name === "education"
+            ? "education"
+            : name === "websites"
+              ? "websites"
+              : null
       if (!collection) continue
 
       const add = group.querySelector<HTMLElement>("[data-automation-id='add-button']")

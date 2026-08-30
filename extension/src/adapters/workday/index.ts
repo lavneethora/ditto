@@ -26,6 +26,10 @@ import type { Adapter, FieldKind, ProfileKey } from "~core/types"
 const FIELD_NAMES: Record<string, ProfileKey> = {
   email: "personal.email",
 
+  preferredCheck: "personal.hasPreferredName",
+  "preferredName--firstName": "personal.preferredFirstName",
+  "preferredName--lastName": "personal.preferredLastName",
+
   "legalName--firstName": "personal.firstName",
   "legalName--middleName": "personal.middleName",
   "legalName--lastName": "personal.lastName",

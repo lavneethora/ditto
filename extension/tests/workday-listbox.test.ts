@@ -109,3 +109,51 @@ describe("an open menu is not a field", () => {
     expect(document.querySelector("[role='listbox']")).not.toBeNull()
   })
 })
+
+describe("a dropdown that is already right", () => {
+  /**
+   * Workday pre-fills Country and Country Phone Code from the account. On a
+   * live step 2 both were already correct, Ditto opened them anyway to choose
+   * the value they were already showing, nothing changed, and the commit check
+   * reported "the dropdown would not commit it" over two correct fields.
+   */
+
+  it("leaves a listbox alone when it already shows the value", async () => {
+    trigger().textContent = "Canada"
+
+    let presses = 0
+    trigger().addEventListener("click", () => {
+      presses += 1
+    })
+
+    const result = await selectFromCombobox(trigger(), "Canada")
+
+    expect(result.ok).toBe(true)
+    expect(result.value).toBe("Canada")
+    expect(presses).toBe(0)
+  })
+
+  it("does not mistake one dial code for another", async () => {
+    // "+1" appears inside "Australia (+61)" under any loose containment test,
+    // and a false positive here is a green check on a field nobody set.
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<button aria-haspopup="listbox" id="code">Australia (+61)</button>`
+    )
+
+    const result = await selectFromCombobox(document.getElementById("code")!, "+1")
+
+    expect(result.ok).toBe(false)
+  })
+
+  it("still opens a listbox holding the wrong value", async () => {
+    trigger().textContent = "Albania"
+    wireSelection()
+
+    const result = await selectFromCombobox(trigger(), "Canada")
+
+    expect(result.ok).toBe(true)
+    expect(result.value).toBe("Canada")
+  })
+})

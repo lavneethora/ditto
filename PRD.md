@@ -88,6 +88,7 @@ Centered modal. Left section nav with a dot marking incomplete sections, right p
 | Education | repeatable: school, degree, major, GPA, start, end, currently studying |
 | Work Experience | repeatable: company, title, location, start, end, currently working, summary, bulleted job description |
 | Skills | chips with removal, plus an add input |
+| Preferences | relocation (yes/no), how did you hear about us, desired salary |
 | Equal Employment | US work authorization, sponsorship requirement, disability, veteran, gender, race, Hispanic/Latino, LGBTQ+, sexual orientation, pronouns. Each supports "decline to state" as a real answer; leaving one unanswered makes Ditto skip it |
 | Answers | reusable saved snippets keyed by question type ("why this company", "additional information") |
 
@@ -96,10 +97,11 @@ Six sections, matching Jobright's minus the two that do not apply. Its
 section serves job matching, which Ditto does not do. Links live inside
 Personal, where Jobright puts them and where a form asks for them.
 
-One consequence, accepted deliberately: with no Preference section there is no
-stored answer for "How did you hear about us?" or "When can you start?", both
-of which are common and sometimes required. They land in NEEDS YOU every time
-rather than being guessed at.
+Preferences was cut and then restored, at three fields rather than the
+original five. The test applied to both it and Answers is the same: keep only
+what has the same answer on every application. That excludes an earliest start
+date, which lives in Answers as free text because that is how forms ask it;
+storing a date here as well would be two sources of truth for one question.
 
 **Learn from corrections.** A toggle, on by default: when the user fixes a value directly in an application form, Ditto writes the correction back to the profile.
 

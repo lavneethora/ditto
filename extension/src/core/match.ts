@@ -49,6 +49,21 @@ function sectionKind(section: string | undefined): SectionKind {
 }
 
 /**
+ * Whether a label reads as a question rather than a field name.
+ *
+ * Two signals, either sufficient: it ends in a question mark, or it opens with
+ * an interrogative or auxiliary verb. Both are cheap and neither depends on
+ * the wording of any one ATS.
+ */
+function isQuestion(label: string): boolean {
+  if (/\?\s*$/.test(label)) return true
+
+  return /^(?:are|is|do|does|did|have|has|had|will|would|can|could|should|may|why|how|what|when|where|which|who|whose|if)\b/.test(
+    canonical(label)
+  )
+}
+
+/**
  * The `autocomplete` attribute, when it carries a standard token.
  *
  * This is the most reliable signal available and it outranks label matching,
@@ -110,36 +125,42 @@ const RULES: MatchRule[] = [
   // also mention authorization.
   {
     key: "eeo.requiresSponsorship",
+    allowOnQuestion: true,
     test: /\bwithout\s+(?:any\s+)?(?:company\s+|employer\s+|visa\s+|immigration\s+|the\s+need\s+for\s+)?sponsorship\b/,
     invert: true,
     weight: 100
   },
   {
     key: "eeo.requiresSponsorship",
+    allowOnQuestion: true,
     test: /\bnot\s+require\s+(?:visa\s+|employment\s+|employer\s+)?sponsorship\b/,
     invert: true,
     weight: 100
   },
   {
     key: "eeo.requiresSponsorship",
+    allowOnQuestion: true,
     test: /\b(?:require|requires|requiring|need|needs|needing|seek|seeking)\b[^.?]{0,40}\bsponsorship\b/,
     invert: false,
     weight: 90
   },
   {
     key: "eeo.requiresSponsorship",
+    allowOnQuestion: true,
     test: /\bsponsorship\b/,
     invert: false,
     weight: 50
   },
   {
     key: "eeo.authorizedUS",
+    allowOnQuestion: true,
     test: /\b(?:legally\s+)?(?:authorized|authorised|eligible|permitted)\b[^.?]{0,30}\bwork\b/,
     invert: false,
     weight: 80
   },
   {
     key: "eeo.authorizedUS",
+    allowOnQuestion: true,
     test: /\bwork\s+authorization\b|\bauthorization\s+to\s+work\b|\bright\s+to\s+work\b/,
     invert: false,
     weight: 80
@@ -147,14 +168,14 @@ const RULES: MatchRule[] = [
 
   // --- Voluntary demographic questions --------------------------------------
 
-  { key: "eeo.hispanicLatino", test: /\bhispanic\b|\blatino\b|\blatinx\b/, weight: 90 },
-  { key: "eeo.disability", test: /\bdisabilit(?:y|ies)\b|\bdisabled\b/, weight: 90 },
-  { key: "eeo.veteran", test: /\bveteran\b|\bmilitary\s+service\b|\bprotected\s+veteran\b/, weight: 90 },
-  { key: "eeo.pronouns", test: /\bpronouns?\b/, weight: 100 },
-  { key: "eeo.sexualOrientation", test: /\bsexual\s+orientation\b/, weight: 100 },
-  { key: "eeo.lgbtq", test: /\blgbtq?\+?\b|\bqueer\b/, weight: 95 },
-  { key: "eeo.gender", test: /\bgender\b|\bsex\b/, weight: 80 },
-  { key: "eeo.race", test: /\brace\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+group\b/, weight: 80 },
+  { key: "eeo.hispanicLatino", allowOnQuestion: true, test: /\bhispanic\b|\blatino\b|\blatinx\b/, weight: 90 },
+  { key: "eeo.disability", allowOnQuestion: true, test: /\bdisabilit(?:y|ies)\b|\bdisabled\b/, weight: 90 },
+  { key: "eeo.veteran", allowOnQuestion: true, test: /\bveteran\b|\bmilitary\s+service\b|\bprotected\s+veteran\b/, weight: 90 },
+  { key: "eeo.pronouns", allowOnQuestion: true, test: /\bpronouns?\b/, weight: 100 },
+  { key: "eeo.sexualOrientation", allowOnQuestion: true, test: /\bsexual\s+orientation\b/, weight: 100 },
+  { key: "eeo.lgbtq", allowOnQuestion: true, test: /\blgbtq?\+?\b|\bqueer\b/, weight: 95 },
+  { key: "eeo.gender", allowOnQuestion: true, test: /\bgender\b|\bsex\b/, weight: 80 },
+  { key: "eeo.race", allowOnQuestion: true, test: /\brace\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+group\b/, weight: 80 },
 
   // --- Names ----------------------------------------------------------------
 
@@ -218,7 +239,7 @@ const RULES: MatchRule[] = [
   // --- Work -----------------------------------------------------------------
 
   { key: "work[].company", test: /\bcompany\b|\bemployer\b|\borganization\b|\borganisation\b/, weight: 90 },
-  { key: "work[].title", test: /\bjob\s+title\b|\bposition\s+title\b|^title$|\brole\b/, weight: 85 },
+  { key: "work[].title", test: /\bjob\s+title\b|\bposition\s+title\b|^title$|^role$|\b(?:current|recent|previous)\s+role\b/, weight: 85 },
   {
     key: "work[].summary",
     test: /\bdescription\b|\bsummary\b|\bresponsibilit(?:y|ies)\b|\bachievements\b/,
@@ -317,10 +338,15 @@ export function match(field: FieldSpec, extraRules: readonly MatchRule[] = []): 
 
   const candidates = [...extraRules, ...RULES, ...dateRules]
 
+  // A question that merely mentions a field's keyword is not that field. See
+  // MatchRule.allowOnQuestion.
+  const question = isQuestion(field.label)
+
   let best: MatchResult | null = null
   let bestWeight = -1
 
   for (const rule of candidates) {
+    if (question && !rule.allowOnQuestion) continue
     if (!rule.test.test(label)) continue
 
     const weight = rule.weight ?? 50

@@ -6,6 +6,33 @@ import { useProfile } from "~ui/useProfile"
 import "~ui/styles.css"
 
 /**
+ * Open the profile editor as its own window.
+ *
+ * `chrome.runtime.openOptionsPage()` opens a background tab, which loses the
+ * user's place on the job posting they were reading. The editor is a dialog,
+ * not a destination, so it gets a dialog-shaped window.
+ *
+ * On an application page the drawer opens the same editor as a modal over the
+ * page and this is never reached. This is the fallback for everywhere else.
+ */
+function openEditorWindow() {
+  const width = 1040
+  const height = 800
+
+  void chrome.windows.create({
+    url: chrome.runtime.getURL("options.html"),
+    type: "popup",
+    width,
+    height,
+    left: Math.max(0, Math.round((screen.availWidth - width) / 2)),
+    top: Math.max(0, Math.round((screen.availHeight - height) / 2))
+  })
+
+  // The popup has to close itself, or it lingers behind the new window.
+  window.close()
+}
+
+/**
  * Toolbar popup.
  *
  * Deliberately thin: a readiness summary and a way into the full editor. The
@@ -54,7 +81,7 @@ function Popup() {
           <button
             type="button"
             className="ditto-btn ditto-btn--primary ditto-btn--block"
-            onClick={() => chrome.runtime.openOptionsPage()}>
+            onClick={openEditorWindow}>
             Your autofill information
           </button>
 

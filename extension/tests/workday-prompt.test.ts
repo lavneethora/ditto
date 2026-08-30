@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { selectFromCombobox } from "~core/fill/combobox"
+import { readComboboxValue, selectFromCombobox } from "~core/fill/combobox"
 
 /**
  * Workday's search-backed prompt list, captured from a live School box.
@@ -274,5 +274,56 @@ describe("a box whose search only runs on Enter", () => {
 
     expect(result.ok).toBe(true)
     expect(enters).toBe(0)
+  })
+})
+
+describe("a query sitting in the box is not a filled field", () => {
+  /**
+   * The failure underneath every "it isn't choosing" report.
+   *
+   * On a search box with nothing selected, the read-back falls through to
+   * `input.value`, which holds the query. The query is the label being
+   * searched for, so the very first check passed: commit reported success
+   * having selected nothing, and the field was reported filled while sitting
+   * empty on screen. Ditto was not failing to choose so much as believing it
+   * already had.
+   */
+
+  it("does not report success when nothing was selected", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-uxi-widget-type="multiselect">
+         <input id="school" type="text" placeholder="Search">
+         <ul role="listbox" data-automation-id="selectedItemList" id="chosen"></ul>
+       </div>
+       <div data-popper-placement="top">
+         <div data-automation-id="activeListContainer" role="listbox">
+           ${row("Texas Tech University")}
+         </div>
+       </div>`
+    )
+
+    // No handler anywhere: nothing can be selected by any gesture.
+    const result = await selectFromCombobox(
+      document.getElementById("school") as HTMLInputElement,
+      "Texas Tech University"
+    )
+
+    expect(result.ok).toBe(false)
+    expect(document.getElementById("chosen")!.textContent).toBe("")
+  })
+
+  it("reads an unselected multiselect as empty, not as its search text", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-uxi-widget-type="multiselect">
+         <input id="school" type="text" value="Texas Tech University">
+         <ul role="listbox" data-automation-id="selectedItemList" id="chosen"></ul>
+       </div>`
+    )
+
+    expect(readComboboxValue(document.getElementById("school")!)).toBe("")
   })
 })

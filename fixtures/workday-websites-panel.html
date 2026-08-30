@@ -1,0 +1,17 @@
+<!--
+  The Websites section of Workday's My Experience step, captured 2026-08-30
+  from a live tenant after pressing Add. Empty: nothing was filled before
+  capture.
+
+  Structural features this fixture pins down:
+
+  1. A panel is a single required `formField-url` text box, headed "Websites 1".
+     The box says nothing about WHICH link it wants, so nothing in the markup
+     can distinguish a LinkedIn profile from a portfolio. The profile's three
+     link fields are presented to it as one ordered list and paired with panels
+     by position, the same way Education 1 pairs with the first degree.
+  2. Like every other repeatable section it starts with no panels at all, so
+     none of this exists until Add is pressed.
+  3. The panel carries its own Delete button, which Ditto must never press.
+-->
+<div role="group" aria-labelledby="Websites-section"><h4 color="#636363" id="Websites-section" class="css-u6jhox">Websites</h4><div class="css-r2m5aj" style="font-size: 0.75rem;">Add any relevant websites.</div><div role="group" aria-labelledby="Websites-1-panel" class="css-1ebprri"><div class="css-bh8c3f"><h5 id="Websites-1-panel" class="css-1jmq48b">Websites 1</h5><button class="css-zfgw5f"><span class="css-ojb8tj"></span>Delete</button></div><div data-fkit-id="webAddress-78--null" class="css-1obf64m"><div data-automation-id="formField-url" data-fkit-id="webAddress-78--url" class="css-7t35fz"><label for="webAddress-78--url" class="css-1ud5i8o"><span>URL<abbr aria-hidden="true" class="css-1fc83zd">*</abbr></span></label><div class="css-15rz5ap"><div style="width: 100%; max-width: 344px; min-width: 280px;"><input type="text" id="webAddress-78--url" name="url" aria-required="true" class="css-1ez0plr" value=""></div><div class="css-18szrho"></div></div></div></div></div><div class="css-1ebprri"><div class="css-b3pn3b"><div class="css-b3pn3b"><button data-automation-id="add-button" font-size="14" height="40" class="css-134peqe">Add Another</button></div></div></div></div>

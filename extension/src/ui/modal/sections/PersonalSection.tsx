@@ -104,9 +104,10 @@ export function PersonalSection({ profile, update }: SectionProps) {
       </div>
 
       <TextInput
-        label="Address line 1"
+        label="Address line"
         value={p.addressLine1}
         onChange={(v) => set({ addressLine1: v })}
+        placeholder="707 Avenue T"
       />
       <TextInput
         label="Address line 2"
@@ -116,13 +117,23 @@ export function PersonalSection({ profile, update }: SectionProps) {
       />
 
       <div className="ditto-grid ditto-grid--3">
-        <TextInput label="City" value={p.city} onChange={(v) => set({ city: v })} />
         <TextInput
-          label="State"
+          label="Country"
+          value={p.country}
+          onChange={(v) => set({ country: v })}
+          hint="Spelled out, so dropdowns can match it"
+        />
+        <TextInput
+          label="State / Province"
           value={p.state}
           onChange={(v) => set({ state: v })}
           hint="Full name, not the abbreviation"
         />
+        <TextInput label="City" value={p.city} onChange={(v) => set({ city: v })} />
+      </div>
+
+      <div className="ditto-grid ditto-grid--2">
+        <TextInput label="County" value={p.county} onChange={(v) => set({ county: v })} />
         <TextInput
           label="Postal code"
           value={p.postalCode}
@@ -130,7 +141,29 @@ export function PersonalSection({ profile, update }: SectionProps) {
         />
       </div>
 
-      <TextInput label="Country" value={p.country} onChange={(v) => set({ country: v })} />
+      {/*
+        Links live here rather than in a section of their own. That is where
+        Jobright puts them, and it is where a form asks for them: straight
+        after the address, as part of how someone is reached.
+      */}
+      <TextInput
+        label="LinkedIn URL"
+        value={p.linkedin}
+        onChange={(v) => set({ linkedin: v })}
+        placeholder="https://linkedin.com/in/yourname"
+      />
+      <TextInput
+        label="GitHub URL"
+        value={p.github}
+        onChange={(v) => set({ github: v })}
+        placeholder="https://github.com/yourname"
+      />
+      <TextInput
+        label="Website URL"
+        value={p.website}
+        onChange={(v) => set({ website: v })}
+        placeholder="https://yoursite.com"
+      />
     </>
   )
 }

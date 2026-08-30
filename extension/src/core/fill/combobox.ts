@@ -269,6 +269,71 @@ async function scrollForOption(
   return null
 }
 
+/** What a list of options looks like, for noticing when it stops changing. */
+function signature(options: FieldOption[]): string {
+  return options.map((option) => option.label).join("|")
+}
+
+/**
+ * Wait for a search to produce its answer, or to finish without one.
+ *
+ * Taking the first non-empty list that appears is what made a skills box skip
+ * values: the list showing a moment after typing is the previous query's
+ * results, or this one's half rendered, and neither contains the answer yet.
+ * Ditto read it, found nothing, and moved on while the real results were
+ * still arriving.
+ *
+ * So: return the moment the wanted value shows up, and otherwise wait until
+ * the list stops changing. A list that has settled without the answer is a
+ * real no, and worth reporting quickly rather than waiting out the budget.
+ */
+async function waitForResults(
+  doc: Document,
+  control: Element,
+  wanted: string,
+  budgetMs: number,
+  stale: ReadonlySet<Element>
+): Promise<FieldOption[]> {
+  const deadline = Date.now() + budgetMs
+  let options: FieldOption[] = []
+  let previous: string | null = null
+  let atStart: string | null = null
+  let unchanged = 0
+  let replaced = false
+
+  while (Date.now() < deadline) {
+    const menu = findOpenMenu(doc, control, stale)
+    options = menu ? readOptions(menu) : []
+
+    if (options.length > 0 && (pickText(options, wanted) ?? exactish(options, wanted))) {
+      return options
+    }
+
+    const current = signature(options)
+    if (atStart === null) atStart = current
+    if (current !== atStart) replaced = true
+
+    unchanged = current === previous ? unchanged + 1 : 0
+    previous = current
+
+    /**
+     * Settled means this query's results arrived and the answer is not among
+     * them, which is worth reporting quickly.
+     *
+     * It does not mean the list has not moved yet. What is on screen straight
+     * after typing is the previous query's results, and those are perfectly
+     * stable: without waiting for them to be replaced at least once, every
+     * slow search looked settled after three quiet polls and Ditto moved on
+     * before the real answer landed.
+     */
+    if (options.length > 0 && replaced && unchanged >= 3) return options
+
+    await sleep(OPEN_WAIT_MS)
+  }
+
+  return options
+}
+
 /** Poll for options, since the menu populates a frame or two after opening. */
 async function waitForOptions(
   doc: Document,
@@ -546,7 +611,7 @@ export async function selectFromCombobox(
       // A short look first, for the boxes that filter as you type. Lever's
       // location typeahead is one of those and must not be sent an Enter it
       // did not ask for.
-      options = await waitForOptions(doc, input, Math.min(600, left), stale)
+      options = await waitForResults(doc, input, wanted, Math.min(900, left), stale)
 
       /**
        * Enter to RUN the search, for the boxes that do not filter as you type.
@@ -562,7 +627,7 @@ export async function selectFromCombobox(
       if (options.length === 0) {
         pressKey(input, "Enter", 13)
         searchRanOnEnter = true
-        options = await waitForOptions(doc, input, Math.max(0, deadline - Date.now()), stale)
+        options = await waitForResults(doc, input, wanted, Math.max(0, deadline - Date.now()), stale)
       }
 
       choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null

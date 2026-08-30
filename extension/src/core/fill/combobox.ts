@@ -49,6 +49,17 @@ const SEARCH_WAIT_MS = 2000
 const SEARCH_BUDGET_MS = 2800
 
 /**
+ * The ceiling on one attempt at one value, across every phase.
+ *
+ * Opening, searching, scrolling a long list and committing each have their
+ * own budget, and each was chosen for what that phase needs. Added together
+ * they are how a value that simply is not there takes seven seconds to say
+ * so, and a skills box tries a dozen of them. Success returns early, so this
+ * only ever bites on failure.
+ */
+const ATTEMPT_BUDGET_MS = 4500
+
+/**
  * How long to wait, in total, for a click to show up in the control.
  *
  * Generous, because confirming early is cheap and the cost of giving up too
@@ -438,6 +449,9 @@ export async function selectFromCombobox(
     return { ok: true, value: existing }
   }
 
+  const attemptEnds = Date.now() + ATTEMPT_BUDGET_MS
+  const remaining = () => Math.max(0, attemptEnds - Date.now())
+
   // Anything already open belongs to a field filled before this one.
   const stale: ReadonlySet<Element> = new Set(doc.querySelectorAll(MENU_SELECTORS))
 
@@ -520,7 +534,7 @@ export async function selectFromCombobox(
   let typedQuery: string | null = null
 
   if (!choice && isTextInput) {
-    const deadline = Date.now() + SEARCH_BUDGET_MS
+    const deadline = Date.now() + Math.min(SEARCH_BUDGET_MS, remaining())
 
     for (const query of queriesFor(wanted)) {
       const left = deadline - Date.now()
@@ -560,7 +574,7 @@ export async function selectFromCombobox(
    * Still nothing, and the list may simply be longer than what is rendered.
    */
   if (!choice && options.length > 0) {
-    choice = await scrollForOption(doc, input, stale, wanted, 1500)
+    choice = await scrollForOption(doc, input, stale, wanted, Math.min(1500, remaining()))
   }
 
   if (!choice?.el) {
@@ -579,7 +593,13 @@ export async function selectFromCombobox(
      * what was typed into it.
      */
     if (isTextInput) {
-      const accepted = await commitTypedText(doc, input as HTMLInputElement, wanted, stale)
+      const accepted = await commitTypedText(
+        doc,
+        input as HTMLInputElement,
+        wanted,
+        stale,
+        remaining()
+      )
       if (accepted) return { ok: true, value: wanted }
     }
 
@@ -625,7 +645,8 @@ export async function selectFromCombobox(
     stale,
     enterSelects,
     options.indexOf(choice),
-    typedQuery
+    typedQuery,
+    remaining()
   )
 
   if (!committed) {
@@ -651,7 +672,8 @@ async function commitTypedText(
   doc: Document,
   input: HTMLInputElement,
   wanted: string,
-  stale: ReadonlySet<Element>
+  stale: ReadonlySet<Element>,
+  budgetMs = 600
 ): Promise<boolean> {
   const current = () => readComboboxValue((relocate(input) ?? input) as HTMLElement)
   const before = current()
@@ -686,7 +708,7 @@ async function commitTypedText(
   // A short budget. This is the last thing tried before giving up, and a
   // widget that takes typed text does so immediately; waiting longer only
   // slows down every field that genuinely cannot be filled.
-  if (!(await waitUntil(took, 600))) return false
+  if (!(await waitUntil(took, Math.min(600, budgetMs)))) return false
 
   closeMenu(doc, input, stale, took)
   return true
@@ -712,7 +734,8 @@ async function commit(
   stale: ReadonlySet<Element> = new Set(),
   enterFirst = false,
   optionIndex = -1,
-  typedQuery: string | null = null
+  typedQuery: string | null = null,
+  budgetMs = COMMIT_WAIT_MS
 ): Promise<boolean> {
   // Read through relocate: committing makes these widgets re-render, and the
   // trigger Ditto is holding can be replaced by an identical one carrying the
@@ -768,7 +791,7 @@ async function commit(
   }
 
   // One deadline for every strategy below, so the escalation cannot compound.
-  const deadline = Date.now() + COMMIT_WAIT_MS
+  const deadline = Date.now() + Math.min(COMMIT_WAIT_MS, budgetMs)
   const budget = (share: number) => Math.min(share, Math.max(0, deadline - Date.now()))
 
   /**
@@ -828,8 +851,15 @@ async function commit(
     if (await waitUntil(took, budget(900))) return closeMenu(doc, input, stale, took)
   }
 
-  // One more click, in case the first landed during a re-render.
-  const retry = fresh()
+  /**
+   * One more click, in case the first landed during a re-render.
+   *
+   * Not if the value is already there. On a slow page the first click can
+   * register while the read-back lags past its budget, and clicking again
+   * then adds the same skill twice, which on a multi-select is a second pill
+   * the user has to find and remove.
+   */
+  const retry = alreadyHolds(current(), choice.label) ? null : fresh()
   if (retry) {
     pressPointer(retry)
     if (await waitUntil(took, budget(1000))) return closeMenu(doc, input, stale, took)

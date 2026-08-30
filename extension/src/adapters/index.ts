@@ -3,6 +3,7 @@ import type { Adapter } from "~core/types"
 import { ashby } from "./ashby"
 import { greenhouse } from "./greenhouse"
 import { lever } from "./lever"
+import { workday } from "./workday"
 
 /**
  * Adapter registry.
@@ -13,7 +14,7 @@ import { lever } from "./lever"
  * behaviour, that behaviour is generalised into core/fill/ so every adapter
  * gets it, which is the difference between four adapters and four extensions.
  */
-export const ADAPTERS: Adapter[] = [greenhouse, lever, ashby]
+export const ADAPTERS: Adapter[] = [greenhouse, lever, ashby, workday]
 
 export function detectAdapter(doc: Document, url: string): Adapter | null {
   const host = hostOf(url)
@@ -48,4 +49,4 @@ function hostOf(url: string): string {
   }
 }
 
-export { ashby, greenhouse, lever }
+export { ashby, greenhouse, lever, workday }

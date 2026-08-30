@@ -30,7 +30,7 @@ const RULES: MatchRule[] = [
   // Legacy Greenhouse asks for LinkedIn as a custom question whose label is
   // often just "LinkedIn Profile", already covered, but some boards label the
   // field "Website" while naming it for LinkedIn.
-  { key: "links.linkedin", test: /\blinkedin\b/, weight: 100 },
+  { key: "personal.linkedin", test: /\blinkedin\b/, weight: 100 },
 
   // "Are you legally authorized..." on Greenhouse is frequently phrased with
   // "work authorization" inside a longer sentence.

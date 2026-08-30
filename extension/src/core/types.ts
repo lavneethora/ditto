@@ -232,6 +232,16 @@ export interface Adapter {
    * sibling element only Lever knows about. Return null to fall through.
    */
   label?(el: Element, doc: Document): string | null
+  /**
+   * Correct a control's kind where the markup lies about it.
+   *
+   * Lever's location field is a plain `<input type="text">` with no role and
+   * no aria wiring, but it behaves as a typeahead: the visible box is only a
+   * search field, and the value actually submitted lives in a hidden sibling
+   * that is set by picking from the dropdown. Typed text is discarded, so
+   * driving it as a text input can only ever fail.
+   */
+  kind?(el: Element): FieldKind | null
   /** Controls this adapter should never touch. */
   ignore?(el: Element): boolean
   /** The control that advances a multi-step form, if there is one. */

@@ -21,6 +21,7 @@ import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 
 /** Keys whose stored value is a boolean, and therefore invertible. */
 export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
+  "personal.hasPreferredName",
   "eeo.authorizedUS",
   "eeo.requiresSponsorship",
   "preferences.willingToRelocate"
@@ -180,6 +181,16 @@ const RULES: MatchRule[] = [
 
   // --- Names ----------------------------------------------------------------
 
+  // The disclosure toggle, not the name box. Deliberately narrow: a field
+  // labelled just "Preferred Name" is a text input wanting a name, and must
+  // keep falling through to the rules below it.
+  {
+    key: "personal.hasPreferredName",
+    test: /\b(?:i\s+have|do\s+you\s+have|use)\s+an?\s+preferred\s+name\b|\bi\s+have\s+a\s+preferred\s+name\b/,
+    weight: 95,
+    invert: false,
+    allowOnQuestion: true
+  },
   { key: "personal.preferredFirstName", test: /\bpreferred\b[^.?]{0,12}\bfirst\s+name\b/, weight: 100 },
   { key: "personal.preferredLastName", test: /\bpreferred\b[^.?]{0,12}\b(?:last|family)\s+name\b/, weight: 100 },
   { key: "personal.firstName", test: /\bfirst\s+name\b|\bgiven\s+name\b|\bforename\b/, weight: 90 },

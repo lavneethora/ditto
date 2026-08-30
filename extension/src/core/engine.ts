@@ -60,9 +60,36 @@ export async function autofill({
 }: AutofillOptions): Promise<FillReport> {
   const results: FillResult[] = []
 
-  // Identity by element, because field ids are assigned per scan and a second
-  // scan would renumber everything it already did.
-  const handled = new Set<Element>()
+  /**
+   * What has already been done, by an identity that survives a re-render.
+   *
+   * Not the field id, which is assigned per scan and renumbers on the second
+   * one. And not the element either, which is the trap: Workday replaces its
+   * inputs rather than updating them, so after the first pass every field on
+   * the page is a new object and the second pass fills all of them again. The
+   * user sees First Name, Last Name, Address, City and Phone listed twice.
+   *
+   * So identity comes from what the site published, the same order relocate
+   * uses. Controls carrying none of it fall back to the element, which is
+   * correct for anything that did not get replaced and no worse than before
+   * for anything that did.
+   */
+  const handledKeys = new Set<string>()
+  const handledElements = new Set<Element>()
+
+  const identityOf = (el: Element) =>
+    el.getAttribute("id") || el.getAttribute("data-automation-id") || el.getAttribute("name") || ""
+
+  const alreadyDone = (el: Element) => {
+    const key = identityOf(el)
+    return key ? handledKeys.has(key) : handledElements.has(el)
+  }
+
+  const remember = (el: Element) => {
+    const key = identityOf(el)
+    if (key) handledKeys.add(key)
+    else handledElements.add(el)
+  }
 
   let queue = scan(doc, adapter)
   let total = queue.length
@@ -84,7 +111,7 @@ export async function autofill({
     for (const field of queue) {
       if (shouldCancel?.()) break
 
-      handled.add(field.el as Element)
+      remember(field.el as Element)
 
       const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
 
@@ -107,7 +134,7 @@ export async function autofill({
 
     if (shouldCancel?.()) break
 
-    queue = scan(doc, adapter).filter((field) => !handled.has(field.el as Element))
+    queue = scan(doc, adapter).filter((field) => !alreadyDone(field.el as Element))
     total += queue.length
   }
 

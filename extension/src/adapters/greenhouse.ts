@@ -63,6 +63,8 @@ export const greenhouse: Adapter = {
   id: "greenhouse",
   name: "Greenhouse",
 
+  hosts: [/(^|\\.)greenhouse\\.io$/],
+
   detect(doc, url) {
     if (/(^|\.)greenhouse\.io$/.test(safeHost(url))) return true
 

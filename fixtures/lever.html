@@ -1,0 +1,158 @@
+<!--
+  Captured 2026-08-30 from a live public Lever posting
+  (jobs.lever.co, standard hosted apply form).
+
+  No personal data: nothing was filled before capture.
+
+  Structural features this fixture pins down:
+
+  1. The form id is `application-form`, hyphenated. Greenhouse's newer boards
+     use the SAME id, so any markup fingerprint built on it alone matches both
+     and one adapter silently claims the other's pages.
+  2. There are no `<label for>` associations and no `aria-label`. Every input
+     is wrapped in a bare `<label>` alongside a sibling `.application-label`
+     div, so the wrapping-label strategy is what resolves standard fields.
+  3. Radio groups break that: each option's own `<label>` wraps the input, so
+     resolving a group's question from the radio gives "Yes" rather than the
+     question. The question lives on `.application-question > .application-label`.
+  4. Required is marked with a `✱` span, not a `required` attribute, on some
+     fields.
+  5. `name` is the reliable identifier: name, email, phone, location, org,
+     resume. Custom questions are `cards[uuid][fieldN]`.
+  6. "Current location" is the applicant's own location, not a past job's.
+  7. `consent[marketing]` is a marketing opt-in. Ticking that on someone's
+     behalf is not autofill.
+-->
+<form id="application-form">
+  <ul>
+    <li class="application-question resume">
+      <div class="application-label">Resume/CV<span class="required">✱</span></div>
+      <div class="application-field">
+        <a href="#" class="postings-btn visible-resume-upload">Attach Resume/CV</a>
+        <input type="file" name="resume" id="resume-upload-input">
+      </div>
+    </li>
+
+    <li class="application-question">
+      <label>
+        <div class="application-label">Full name<span class="required">✱</span></div>
+        <div class="application-field">
+          <input type="text" data-qa="name-input" name="name" required="">
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question">
+      <label>
+        <div class="application-label">Email<span class="required">✱</span></div>
+        <div class="application-field">
+          <input name="email" data-qa="email-input" type="email" required="">
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question">
+      <label>
+        <div class="application-label">Phone </div>
+        <div class="application-field">
+          <input type="text" data-qa="phone-input" name="phone">
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question" data-qa="structured-contact-location-question">
+      <label>
+        <div class="application-label">Current location </div>
+        <div class="application-field">
+          <input class="location-input" data-qa="location-input" id="location-input" type="text" maxlength="100" name="location">
+          <input id="selected-location" type="hidden" name="selectedLocation">
+          <div class="dropdown-container">
+            <div class="dropdown-results"></div>
+            <div class="dropdown-no-results">No location found. Try entering a different location</div>
+          </div>
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question">
+      <label>
+        <div class="application-label">Current company </div>
+        <div class="application-field">
+          <input type="text" data-qa="org-input" name="org">
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question">
+      <label>
+        <div class="application-label">LinkedIn URL </div>
+        <div class="application-field">
+          <input type="text" name="urls[LinkedIn]">
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question">
+      <label>
+        <div class="application-label">GitHub URL </div>
+        <div class="application-field">
+          <input type="text" name="urls[GitHub]">
+        </div>
+      </label>
+    </li>
+
+    <li class="application-question custom-question">
+      <div>
+        <div class="application-label full-width multiple-choice">
+          <div class="text">Are you a citizen of a country in the EU/EFTA?<span class="required">✱</span></div>
+        </div>
+        <div class="application-field full-width required-field">
+          <ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[581c7f31-8e7d-46ed-b9a9-bc4d93edd283][field0]" value="Yes" required="required"><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[581c7f31-8e7d-46ed-b9a9-bc4d93edd283][field0]" value="No" required="required"><span class="application-answer-alternative">No</span></label></li>
+          </ul>
+        </div>
+      </div>
+    </li>
+
+    <li class="application-question custom-question">
+      <div>
+        <div class="application-label full-width multiple-choice">
+          <div class="text">Are you willing to relocate for this role?</div>
+        </div>
+        <div class="application-field full-width">
+          <ul data-qa="multiple-choice">
+            <li><label><input type="radio" name="cards[aaaa1111-0000-4000-8000-000000000001][field0]" value="Yes"><span class="application-answer-alternative">Yes</span></label></li>
+            <li><label><input type="radio" name="cards[aaaa1111-0000-4000-8000-000000000001][field0]" value="No"><span class="application-answer-alternative">No</span></label></li>
+          </ul>
+        </div>
+      </div>
+    </li>
+
+    <li class="application-question custom-question">
+      <div>
+        <div class="application-label full-width">
+          <div class="text">Please check all that apply</div>
+        </div>
+        <div class="application-field full-width">
+          <ul>
+            <li><label><input type="checkbox" name="cards[f20afbf3-26f5-4017-b0bb-c631debb70e3][field0]" value="Visa support"><span>Visa support</span></label></li>
+            <li><label><input type="checkbox" name="cards[f20afbf3-26f5-4017-b0bb-c631debb70e3][field0]" value="Housing"><span>Housing</span></label></li>
+            <li><label><input type="checkbox" name="cards[f20afbf3-26f5-4017-b0bb-c631debb70e3][field0]" value="None"><span>None</span></label></li>
+          </ul>
+        </div>
+      </div>
+    </li>
+  </ul>
+
+  <div class="section">
+    <label class="consent">
+      <input type="checkbox" name="consent[marketing]">
+      <span>Yes, I would like to receive marketing emails.</span>
+    </label>
+  </div>
+
+  <div class="application-field">
+    <button type="submit" id="btn-submit">Submit application</button>
+  </div>
+</form>

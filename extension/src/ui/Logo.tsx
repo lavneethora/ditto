@@ -1,4 +1,8 @@
+import { useEffect } from "react"
+
 import logoUrl from "data-base64:../../assets/icon.png"
+
+import { loadGeistMono } from "./geist-mono"
 
 /**
  * The Ditto mark, inlined as a data URL.
@@ -23,6 +27,12 @@ export function Logo({ size = 28 }: { size?: number }) {
 
 /** Mark plus wordmark and tagline, for panel and page headers. */
 export function Wordmark({ size = 28, tagline = true }: { size?: number; tagline?: boolean }) {
+  // Registered here rather than at each call site, so any surface showing the
+  // wordmark gets the face without having to remember to ask for it.
+  useEffect(() => {
+    void loadGeistMono()
+  }, [])
+
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
       <Logo size={size} />

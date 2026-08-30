@@ -1,5 +1,5 @@
 import { isCredentialField, isSubmitByName } from "~core/blocklist"
-import type { Adapter, FieldKind, ProfileKey } from "~core/types"
+import type { Adapter, FieldKind, ProfileKey, RepeatableSection } from "~core/types"
 
 /**
  * Workday.
@@ -129,6 +129,43 @@ export const workday: Adapter = {
 
   root(doc) {
     return doc.querySelector<HTMLElement>("[data-automation-id='applyFlowPage']") ?? doc.body
+  },
+
+  /**
+   * The sections that hold a list and can be grown.
+   *
+   * Workday ships Work Experience, Certifications, Languages and Websites as a
+   * heading and an "Add" button with nothing behind them, and Education as one
+   * panel with "Add Another" below it. Only the two the profile has entries
+   * for are claimed here; the rest stay the user's to fill, because Ditto has
+   * nothing to put in them.
+   *
+   * Panels are counted as nested groups. The section itself is a
+   * `role="group"` labelled "Education", and each entry inside it is another
+   * labelled "Education 1".
+   */
+  repeatables(doc): RepeatableSection[] {
+    const sections: RepeatableSection[] = []
+
+    for (const group of doc.querySelectorAll("[role='group'][aria-labelledby]")) {
+      const heading = doc.getElementById(group.getAttribute("aria-labelledby") ?? "")
+      const name = heading?.textContent?.trim().toLowerCase() ?? ""
+
+      const collection =
+        name === "work experience" ? "work" : name === "education" ? "education" : null
+      if (!collection) continue
+
+      const add = group.querySelector<HTMLElement>("[data-automation-id='add-button']")
+      if (!add) continue
+
+      sections.push({
+        collection,
+        present: group.querySelectorAll("[role='group'][aria-labelledby]").length,
+        add
+      })
+    }
+
+    return sections
   },
 
   /**

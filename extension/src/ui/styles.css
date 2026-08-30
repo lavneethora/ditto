@@ -23,9 +23,10 @@
  */
 
 .ditto-root {
-  /* Ground */
-  --ditto-bg: #fffdfa;
-  --ditto-surface: #eeebe6;
+  /* Ground. Solid white, with neutral greys chosen to sit against it: the
+     warm off-white this started from reads as dirty beside the logo. */
+  --ditto-bg: #ffffff;
+  --ditto-surface: #f4f4f5;
   --ditto-card: #ffffff;
 
   /* Text, as opacity on black. Never gray hex. */
@@ -35,9 +36,9 @@
   --ditto-text-faint: rgba(0, 0, 0, 0.35);
 
   /* Lines */
-  --ditto-border: #e2e1de;
-  --ditto-border-strong: #c7c7c7;
-  --ditto-border-subtle: #eeeded;
+  --ditto-border: #e4e4e7;
+  --ditto-border-strong: #d4d4d8;
+  --ditto-border-subtle: #f0f0f1;
 
   /* Brand, sampled from the logo. Used for selection and active states.
      Kept distinct from --ditto-ok on purpose: green means a field was
@@ -75,6 +76,10 @@
 
   --ditto-font: -apple-system, BlinkMacSystemFont, "Segoe UI Variable", "Segoe UI", Inter,
     system-ui, "Helvetica Neue", sans-serif;
+
+  /* The wordmark only. Registered at document scope by geist-mono.ts, since
+     Chrome ignores at-font-face declared inside a shadow root. */
+  --ditto-font-mark: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
 
   font-family: var(--ditto-font);
   color: var(--ditto-text);
@@ -162,11 +167,11 @@
 }
 
 .ditto-btn--primary {
-  background: linear-gradient(180deg, #3a3a3a, #353535);
+  background: linear-gradient(180deg, var(--ditto-brand), var(--ditto-brand-strong));
   color: #ffffff;
-  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.5);
-  box-shadow: var(--ditto-shadow-btn), var(--ditto-ring-dark),
-    rgba(255, 255, 255, 0.1) 0 0 12px inset;
+  text-shadow: 0 0.5px 0 rgba(0, 0, 0, 0.35);
+  box-shadow: var(--ditto-shadow-btn), var(--ditto-brand-strong) 0 0 0 1.25px inset,
+    rgba(255, 255, 255, 0.18) 0 0 12px inset;
 }
 
 .ditto-btn--primary:hover:not(:disabled) {
@@ -668,9 +673,12 @@
 }
 
 .ditto-brand-name {
+  font-family: var(--ditto-font-mark);
   font-size: 26px;
-  font-weight: 700;
-  letter-spacing: -0.8px;
+  font-weight: 600;
+  /* Mono faces are already wide, so the display tracking used elsewhere would
+     pull the letterforms into each other. */
+  letter-spacing: -0.02em;
 }
 
 .ditto-brand-tag {
@@ -941,13 +949,19 @@
 }
 
 .ditto-listrow-main {
+  display: block;
   min-width: 0;
+  font-weight: 500;
 }
 
 .ditto-listrow-sub {
+  /* Block, or it sits on the same line as the label and reads as one run of
+     text: "Upload resumeNo resume uploaded". */
+  display: block;
   font-size: 12px;
+  font-weight: 400;
   color: var(--ditto-text-muted);
-  margin-top: 2px;
+  margin-top: 3px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

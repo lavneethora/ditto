@@ -96,10 +96,19 @@
   box-sizing: border-box;
 }
 
-.ditto-root button,
-.ditto-root input,
-.ditto-root textarea,
-.ditto-root select {
+/*
+ * Wrapped in :where() so the reset carries no specificity of its own.
+ *
+ * Written as `.ditto-root button` this selector scores (0,1,1) and beats every
+ * component class at (0,1,0), so `color: inherit` silently overrode
+ * `.ditto-btn--primary { color: #fff }` and `font-size: inherit` overrode the
+ * button sizes. The result was black 14px text on a saturated blue button:
+ * legible enough to look intentional, and about 2:1 contrast.
+ *
+ * :where() zeroes that out, so the reset provides defaults and the component
+ * classes that follow win on source order.
+ */
+.ditto-root :where(button, input, textarea, select) {
   font-family: inherit;
   font-size: inherit;
   color: inherit;
@@ -210,9 +219,12 @@
   width: 100%;
 }
 
+/* The one action the panel exists for, so it carries real weight. */
 .ditto-btn--lg {
-  height: 46px;
-  font-size: 16px;
+  height: 52px;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 /* Small square icon button, used for close and delete affordances. */

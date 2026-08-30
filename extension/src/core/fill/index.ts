@@ -2,6 +2,7 @@ import { resumeToFile } from "~profile/resume"
 
 import type { AttemptOutcome, FieldSpec } from "../types"
 import type { Resolved } from "../resolve"
+import { selectFromCombobox } from "./combobox"
 import { attachFiles, dropFiles, isLive, safeClick, setNativeValue, fireInput, typeInto } from "./dom"
 import { pickOption } from "./options"
 
@@ -75,7 +76,7 @@ function asChoice(resolved: Resolved): string | boolean | null {
   }
 }
 
-export function fill(field: FieldSpec, resolved: Resolved): AttemptOutcome {
+export async function fill(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {
   // Non-value outcomes pass straight through to the report.
   if (resolved.kind === "none" || resolved.kind === "opted_out") {
     return { kind: "skipped", reason: resolved.reason }
@@ -164,15 +165,23 @@ export function fill(field: FieldSpec, resolved: Resolved): AttemptOutcome {
         return { kind: "wrote", value: resolved.value.filename }
       }
 
-      case "multiselect":
-      case "combobox": {
-        // Custom listboxes land in M3 and M4. Until the widget is driven
-        // properly, saying so is better than writing text into a box that
-        // discards it on blur and calling that filled.
-        return {
-          kind: "needs_you",
-          reason: "This control needs a real selection, so Ditto left it to you"
+      case "combobox":
+      case "multiselect": {
+        const choice = asChoice(resolved)
+        if (choice === null) return { kind: "error", reason: "Nothing sensible to select here" }
+
+        const wanted =
+          typeof choice === "boolean" ? (choice ? "Yes" : "No") : String(choice)
+
+        const outcome = await selectFromCombobox(field.el as HTMLElement, wanted)
+
+        if (!outcome.ok) {
+          // This is the "Country: could not open the dropdown" case. Reporting
+          // it as an error rather than a fill is the whole point.
+          return { kind: "error", reason: outcome.reason ?? "Could not set this dropdown" }
         }
+
+        return { kind: "wrote", value: outcome.value ?? wanted }
       }
     }
   } catch (error) {

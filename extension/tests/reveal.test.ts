@@ -94,3 +94,58 @@ describe("a checkbox that reveals fields", () => {
     expect(new Set(labels).size).toBe(labels.length)
   })
 })
+
+describe("a form that replaces its inputs as you fill it", () => {
+  /**
+   * Reported live on Workday, and caused by the reveal pass above.
+   *
+   * Workday does not update an input, it paints a new one. Keyed by element,
+   * every field on the page looked new on the second pass and every one was
+   * filled again: the user saw First Name, Last Name, Address Line 1, City,
+   * Postal Code and Phone Number listed twice in the report.
+   *
+   * The first version of the test above never replaced a node, which is
+   * exactly why it did not catch this.
+   */
+
+  /** Swap every input for an identical one, the way a re-render does. */
+  function repaint(): void {
+    for (const input of [...document.querySelectorAll("input")]) {
+      const fresh = input.cloneNode(true) as HTMLInputElement
+      fresh.value = input.value
+      fresh.checked = input.checked
+      input.replaceWith(fresh)
+    }
+  }
+
+  it("does not fill a field twice because its element was swapped", async () => {
+    const box = document.getElementById("name--preferredCheck") as HTMLInputElement
+    box.addEventListener("click", () => setTimeout(repaint, 0))
+
+    const report = await autofill({
+      doc: document,
+      adapter: workday,
+      profile: profile({ hasPreferredName: true, preferredFirstName: "Jo" }) as never
+    })
+
+    const all = report.filled.concat(report.needsYou, report.skipped, report.errors)
+    const firstNames = all.filter((r) => r.label === "First Name")
+
+    expect(firstNames).toHaveLength(1)
+    expect(all.map((r) => r.label)).toHaveLength(new Set(all.map((r) => r.label)).size)
+  })
+
+  it("still reaches a genuinely new field after a repaint", async () => {
+    // The dedupe must not be so eager that it swallows the reveal itself.
+    const box = document.getElementById("name--preferredCheck") as HTMLInputElement
+    box.addEventListener("click", () => setTimeout(repaint, 0))
+
+    await autofill({
+      doc: document,
+      adapter: workday,
+      profile: profile({ hasPreferredName: true, preferredFirstName: "Jo" }) as never
+    })
+
+    expect((document.getElementById("pref--first") as HTMLInputElement).value).toBe("Jo")
+  })
+})

@@ -129,7 +129,7 @@ export function clickStructural(el: Element): void {
  * site calls preventDefault in its own handler. Relying on someone else's
  * handler for a non-negotiable is not a guarantee. This makes it one.
  */
-function withSubmitGuard(el: Element, act: () => void): void {
+export function withSubmitGuard(el: Element, act: () => void): void {
   const form = el.closest("form")
   const block = (event: Event) => {
     event.preventDefault()

@@ -1,0 +1,97 @@
+<!--
+  Captured 2026-08-30 from a live public Ashby posting
+  (jobs.ashbyhq.com). No personal data: nothing was filled before capture.
+
+  Structural features this fixture pins down:
+
+  1. Every field wrapper carries `data-field-path`. Core fields get stable
+     names (_systemfield_name, _systemfield_email, _systemfield_resume,
+     _systemfield_location); company-specific ones get a UUID. That path is an
+     exact identifier, unlike a label, so the adapter reads it first.
+  2. `<label for>` works for plain fields, so core label resolution handles
+     them without help.
+  3. A radio group is a `<fieldset>` with NO `<legend>`. The question is a
+     `<label class="ashby-application-form-question-title">`, and each option's
+     label is a SIBLING of its input, not an ancestor. Removing only ancestor
+     rows leaves every option's text in the question.
+  4. The "how did you hear" checkboxes share a fieldset but each has a
+     DIFFERENT name, the option's own text. Grouping by name alone reports one
+     row per option.
+  5. Location is react-select behind a plain-looking input: no role, no
+     aria-haspopup on the wrapper.
+-->
+<form class="ashby-application-form">
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_name">
+    <label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="_systemfield_name">Full Name</label>
+    <div><input placeholder="Type here..." name="_systemfield_name" required="" id="_systemfield_name" type="text"></div>
+  </div>
+
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_email">
+    <label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="_systemfield_email">Email</label>
+    <div><input name="_systemfield_email" required="" id="_systemfield_email" type="email"></div>
+  </div>
+
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="5309839e-5ecc-4960-9274-3dd0769722da">
+    <label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="5309839e-5ecc-4960-9274-3dd0769722da">Phone</label>
+    <div><input name="5309839e-5ecc-4960-9274-3dd0769722da" required="" id="5309839e-5ecc-4960-9274-3dd0769722da" type="tel"></div>
+  </div>
+
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_location">
+    <label class="_heading_f7cvd_52 ashby-application-form-question-title" for="_systemfield_location">Location</label>
+    <div class="_inputContainer_d7ago_28">
+      <input class="_input_d7ago_28" role="combobox" type="text" id="_systemfield_location">
+    </div>
+  </div>
+
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="_systemfield_resume">
+    <label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="_systemfield_resume">Resume</label>
+    <div role="presentation" class="_container_10xk4_70 ashby-application-form-input-file">
+      <input type="file" id="_systemfield_resume" required="">
+    </div>
+  </div>
+
+  <div class="_fieldEntry_1e3gg_28 ashby-application-form-field-entry" data-field-path="5d3b9bcd-dacb-4f3b-8baa-16176e3f2df8">
+    <label class="_heading_f7cvd_52 _required_f7cvd_91 ashby-application-form-question-title" for="5d3b9bcd-dacb-4f3b-8baa-16176e3f2df8">LinkedIn Profile</label>
+    <div><input name="5d3b9bcd-dacb-4f3b-8baa-16176e3f2df8" required="" id="5d3b9bcd-dacb-4f3b-8baa-16176e3f2df8" type="text"></div>
+  </div>
+
+  <fieldset class="_container_1258i_28 _fieldEntry_1e3gg_28 ashby-application-form-input-radio-group" data-field-path="086feb8d-pronouns">
+    <label class="_heading_f7cvd_52 ashby-application-form-question-title" for="d9b14512">What pronouns would you like our team to use when addressing you?</label>
+    <div class="_option_1258i_34 ashby-application-form-input-radio-group-option">
+      <span class="_container_132c8_28"><span class="_circle_132c8_77"></span><input type="radio" id="pronouns-labeled-radio-0" name="pronouns" value="He/Him"></span>
+      <label for="pronouns-labeled-radio-0">He/Him</label>
+    </div>
+    <div class="_option_1258i_34 ashby-application-form-input-radio-group-option">
+      <span class="_container_132c8_28"><span class="_circle_132c8_77"></span><input type="radio" id="pronouns-labeled-radio-1" name="pronouns" value="She/Her"></span>
+      <label for="pronouns-labeled-radio-1">She/Her</label>
+    </div>
+    <div class="_option_1258i_34 ashby-application-form-input-radio-group-option">
+      <span class="_container_132c8_28"><span class="_circle_132c8_77"></span><input type="radio" id="pronouns-labeled-radio-2" name="pronouns" value="They/Them"></span>
+      <label for="pronouns-labeled-radio-2">They/Them</label>
+    </div>
+    <div class="_option_1258i_34 ashby-application-form-input-radio-group-option">
+      <span class="_container_132c8_28"><span class="_circle_132c8_77"></span><input type="radio" id="pronouns-labeled-radio-3" name="pronouns" value="Prefer not to say"></span>
+      <label for="pronouns-labeled-radio-3">Prefer not to say</label>
+    </div>
+  </fieldset>
+
+  <fieldset class="_container_1258i_28 _fieldEntry_1e3gg_28 ashby-application-form-input-checkbox-group" data-field-path="086feb8d-source">
+    <label class="_heading_f7cvd_52 ashby-application-form-question-title" for="7464ce83">How did you hear about us?</label>
+    <div class="_option_1258i_34">
+      <input type="checkbox" id="source-labeled-checkbox-0" name="LinkedIn">
+      <label for="source-labeled-checkbox-0">LinkedIn</label>
+    </div>
+    <div class="_option_1258i_34">
+      <input type="checkbox" id="source-labeled-checkbox-1" name="Glassdoor">
+      <label for="source-labeled-checkbox-1">Glassdoor</label>
+    </div>
+    <div class="_option_1258i_34">
+      <input type="checkbox" id="source-labeled-checkbox-2" name="Conference or Meetup">
+      <label for="source-labeled-checkbox-2">Conference or Meetup</label>
+    </div>
+  </fieldset>
+
+  <textarea name="g-recaptcha-response" id="g-recaptcha-response-100000"></textarea>
+
+  <button type="submit">Submit Application</button>
+</form>

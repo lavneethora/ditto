@@ -150,7 +150,7 @@ export function EeoSection({ profile, update }: SectionProps) {
 
       <div className="ditto-card">
         <Select
-          label="Race or ethnicity"
+          label="Race or Ethnicity"
           value={eeo.race}
           options={RACES}
           onChange={(v) => set({ race: v })}
@@ -159,7 +159,7 @@ export function EeoSection({ profile, update }: SectionProps) {
 
       <div className="ditto-card">
         <Select
-          label="Sexual orientation"
+          label="Sexual Orientation"
           value={eeo.sexualOrientation}
           options={ORIENTATIONS}
           onChange={(v) => set({ sexualOrientation: v })}

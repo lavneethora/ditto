@@ -12,21 +12,17 @@ import { Toggle } from "~ui/components"
 import { AnswersSection } from "./sections/AnswersSection"
 import { EducationSection } from "./sections/EducationSection"
 import { EeoSection } from "./sections/EeoSection"
-import { LinksSection } from "./sections/LinksSection"
 import { PersonalSection } from "./sections/PersonalSection"
-import { PreferencesSection } from "./sections/PreferencesSection"
 import { SkillsSection } from "./sections/SkillsSection"
 import { WorkSection } from "./sections/WorkSection"
 import type { SectionProps } from "./shared"
 
 const PANES: Record<SectionId, ComponentType<SectionProps>> = {
   personal: PersonalSection,
-  links: LinksSection,
   education: EducationSection,
   work: WorkSection,
   skills: SkillsSection,
   eeo: EeoSection,
-  preferences: PreferencesSection,
   answers: AnswersSection
 }
 

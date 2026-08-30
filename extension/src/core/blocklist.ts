@@ -49,10 +49,32 @@ export function isCredentialField(el: Element): boolean {
   return CREDENTIAL_PATTERN.test(textOf(el))
 }
 
+/**
+ * An ARIA toggle: a button that records a choice rather than performing one.
+ *
+ * Ashby builds its Yes/No questions from two buttons carrying `aria-pressed`
+ * and `data-option`, and leaves them at the HTML default of `type="submit"`
+ * inside the form. By the spec those are submit buttons; they only behave as
+ * toggles because Ashby calls preventDefault. Refusing them outright leaves a
+ * required question permanently unanswerable, so they are allowed through
+ * here and every click is wrapped in a submit guard by dom.ts.
+ */
+function isToggle(el: Element): boolean {
+  if (el.hasAttribute("aria-pressed")) return true
+
+  const role = el.getAttribute("role")
+  return role === "radio" || role === "switch" || role === "checkbox"
+}
+
 /** True for anything that could submit, navigate away, or destroy data. */
 export function isSubmitControl(el: Element): boolean {
-  if (el instanceof HTMLInputElement && (el.type === "submit" || el.type === "image")) return true
-  if (el instanceof HTMLButtonElement && el.type === "submit") return true
+  // Text is still checked below: a toggle labelled "Submit" is not a toggle.
+  const toggle = isToggle(el)
+
+  if (!toggle) {
+    if (el instanceof HTMLInputElement && (el.type === "submit" || el.type === "image")) return true
+    if (el instanceof HTMLButtonElement && el.type === "submit") return true
+  }
 
   const text = textOf(el)
   const normalized = text.toLowerCase().replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim()

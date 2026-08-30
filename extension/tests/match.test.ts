@@ -260,25 +260,32 @@ describe("repeatable entries", () => {
   })
 })
 
-describe("voluntary question opt-out", () => {
-  it("reports an opted-out question as opted_out, never a guess", () => {
+describe("voluntary demographic questions", () => {
+  it("skips a question left unanswered rather than guessing", () => {
+    // There is no separate opt-out any more. Leaving a voluntary question on
+    // "Not answered" is the opt-out, and it must never be filled in with a
+    // default: these are the user's answers to make, not Ditto's.
     const profile = emptyProfile()
-    profile.eeo.disability = "no"
-    profile.eeo.neverFill = ["disability"]
-
     const spec = field("Do you have a disability?")
     const resolved = resolve(match(spec)!, spec, profile)
 
-    expect(resolved.kind).toBe("opted_out")
+    expect(resolved.kind).toBe("none")
   })
 
-  it("still answers questions that were not opted out", () => {
+  it("fills a question that was answered", () => {
     const profile = emptyProfile()
     profile.eeo.veteran = "no"
-    profile.eeo.neverFill = ["disability"]
 
     const spec = field("Are you a veteran?")
     expect(resolve(match(spec)!, spec, profile)).toEqual({ kind: "tristate", value: "no" })
+  })
+
+  it("treats decline to state as a real answer, not an absence", () => {
+    const profile = emptyProfile()
+    profile.eeo.disability = "decline"
+
+    const spec = field("Do you have a disability?")
+    expect(resolve(match(spec)!, spec, profile)).toEqual({ kind: "tristate", value: "decline" })
   })
 })
 

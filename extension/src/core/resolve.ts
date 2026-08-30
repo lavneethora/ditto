@@ -252,8 +252,25 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
       return { kind: "boolean", value: invert ? !entry?.current : Boolean(entry?.current) }
     }
 
-    case "work[].summary":
-      return text(nth(profile.work, index)?.summary, "experience summary")
+    /**
+     * The paragraph if there is one, otherwise the bullets as lines.
+     *
+     * The two are stored separately on purpose, because a Workday textarea
+     * wants prose and a resume-style box wants lines. But an empty paragraph
+     * next to a filled bullet list is not "nothing on file", and reporting it
+     * that way left every Role Description on a three job history blank while
+     * the user could see the bullets sitting in their profile.
+     */
+    case "work[].summary": {
+      const entry = nth(profile.work, index)
+      const bullets = (entry?.bullets ?? []).filter((line) => line.trim().length > 0)
+
+      if (entry?.summary?.trim()) return text(entry.summary, "experience summary")
+
+      return bullets.length > 0
+        ? { kind: "text", value: bullets.join("\n") }
+        : { kind: "none", reason: "No experience summary saved" }
+    }
     case "work[].startDate":
       return text(nth(profile.work, index)?.startDate, "work start date")
     case "work[].endDate": {

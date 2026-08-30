@@ -6,7 +6,7 @@ import { match } from "./match"
 import { buildReport } from "./report"
 import { resolve, resolveUnmatched } from "./resolve"
 import { scan } from "./scan"
-import type { Adapter, FieldSpec, FillReport, FillResult } from "./types"
+import type { Adapter, FieldSpec, FillReport, FillResult, RepeatableSection } from "./types"
 import { verify } from "./verify"
 
 /**
@@ -55,6 +55,24 @@ function hasContent(entry: Record<string, unknown>): boolean {
 }
 
 /**
+ * How many entries the profile has for a section.
+ *
+ * Websites is not a collection in the profile: it is the three link fields,
+ * which the user thinks of separately and Workday asks for as an unlabelled
+ * list. Counting the ones that are filled is what decides how many boxes to
+ * ask for.
+ */
+function entriesToPlace(profile: Profile, collection: RepeatableSection["collection"]): number {
+  if (collection === "websites") {
+    const { linkedin, github, website } = profile.personal
+    return [linkedin, github, website].filter((link) => link.trim().length > 0).length
+  }
+
+  const entries = collection === "work" ? profile.work : profile.education
+  return entries.filter((entry) => hasContent(entry as unknown as Record<string, unknown>)).length
+}
+
+/**
  * Grow the repeatable sections to fit the profile, before filling anything.
  *
  * Workday's Work Experience is a heading and an "Add" button with no fields
@@ -71,10 +89,8 @@ async function growSections(
   adapter: Adapter,
   profile: Profile
 ): Promise<void> {
-  for (const collection of ["work", "education"] as const) {
-    const wanted = (collection === "work" ? profile.work : profile.education).filter((entry) =>
-      hasContent(entry as unknown as Record<string, unknown>)
-    ).length
+  for (const collection of ["work", "education", "websites"] as const) {
+    const wanted = entriesToPlace(profile, collection)
 
     for (let added = 0; added < MAX_ADDED_ENTRIES; added++) {
       // Re-read every time rather than caching the button and the count.

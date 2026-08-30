@@ -182,3 +182,97 @@ describe("a widget that only commits on Enter", () => {
     expect(document.getElementById("chosen")!.textContent).toBe("Texas Tech University")
   })
 })
+
+describe("a box whose search only runs on Enter", () => {
+  /**
+   * The step that was missing, and the one everything else was built on the
+   * absence of.
+   *
+   * Workday's School box shows nothing at all for a query sitting complete in
+   * the input. The list appears only once the query is submitted, which is
+   * what the instructions above the field describe: type the name, press
+   * Enter, then choose. Ditto typed, waited for a list that was never coming,
+   * concluded there were no results, and pressed Enter afterwards only as a
+   * way of committing an option it had already failed to find.
+   */
+
+  /** Nothing is listed until Enter runs the search. */
+  function searchOnEnter(labels: string[]): HTMLInputElement {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-uxi-widget-type="multiselect">
+         <input id="school" type="text" placeholder="Search">
+         <ul role="listbox" data-automation-id="selectedItemList" id="chosen"></ul>
+       </div>
+       <div data-popper-placement="top"><div id="results"></div></div>`
+    )
+
+    const input = document.getElementById("school") as HTMLInputElement
+    let listed = false
+
+    input.addEventListener("keydown", (event) => {
+      if ((event as KeyboardEvent).key !== "Enter") return
+
+      if (!listed) {
+        // First Enter runs the search and renders the results.
+        listed = true
+        document.getElementById("results")!.innerHTML =
+          `<div data-automation-id="activeListContainer" role="listbox">${labels.map(row).join("")}</div>`
+        return
+      }
+
+      // Later Enter takes the highlighted row.
+      const taken = labels[0]
+      document
+        .getElementById("chosen")!
+        .insertAdjacentHTML(
+          "beforeend",
+          `<li><p data-automation-id="promptOption" data-automation-label="${taken}">${taken}</p></li>`
+        )
+      input.value = ""
+    })
+
+    return input
+  }
+
+  it("runs the search, then takes the result", async () => {
+    const input = searchOnEnter(["Texas Tech University"])
+
+    const result = await selectFromCombobox(input, "Texas Tech University")
+
+    expect(result.ok).toBe(true)
+    expect(document.getElementById("chosen")!.textContent).toBe("Texas Tech University")
+  })
+
+  it("does not send Enter to a box that filters as you type", async () => {
+    // Lever's location typeahead filters live and must not be sent an Enter
+    // it did not ask for, so the short look comes first and only an empty
+    // list earns the keystroke.
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div>
+         <input id="loc" class="location-input" type="text">
+         <div class="dropdown-container">
+           <div class="dropdown-results"><div class="dropdown-location">Lubbock, TX, USA</div></div>
+         </div>
+       </div>`
+    )
+
+    const input = document.getElementById("loc") as HTMLInputElement
+    let enters = 0
+    input.addEventListener("keydown", (event) => {
+      if ((event as KeyboardEvent).key === "Enter") enters += 1
+    })
+
+    document.querySelector<HTMLElement>(".dropdown-location")!.addEventListener("click", () => {
+      input.value = "Lubbock, TX, USA"
+    })
+
+    const result = await selectFromCombobox(input, "Lubbock, Texas")
+
+    expect(result.ok).toBe(true)
+    expect(enters).toBe(0)
+  })
+})

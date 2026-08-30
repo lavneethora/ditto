@@ -110,6 +110,14 @@ function readOptions(menu: Element): FieldOption[] {
       const cls = option.el?.className ?? ""
       return !/no-results|loading|empty|placeholder|disabled/i.test(String(cls))
     })
+    // Workday's placeholder row is a real `<li role="option">` reading "Select
+    // One", marked `aria-disabled`. It is the value the field already has when
+    // empty, so choosing it is indistinguishable from doing nothing, and a
+    // fuzzy match on a short profile value could land there.
+    .filter(
+      (option) =>
+        option.el?.getAttribute("aria-disabled") !== "true" && !option.el?.hasAttribute("disabled")
+    )
 }
 
 /** Poll for options, since the menu populates a frame or two after opening. */
@@ -212,6 +220,15 @@ export async function selectFromCombobox(
   let opened = false
 
   for (const handle of openHandles(input)) {
+    // A trigger that is already open must not be pressed again. Workday's
+    // Country and State controls are toggle buttons, so the second handle in
+    // the list closes the menu the first one opened, and the field then
+    // reports that it could not be opened at all.
+    if (findOpenMenu(doc, input) || input.getAttribute("aria-expanded") === "true") {
+      opened = true
+      break
+    }
+
     pressPointer(handle)
     await sleep(OPEN_WAIT_MS)
 

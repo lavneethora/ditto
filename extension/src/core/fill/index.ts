@@ -162,11 +162,19 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
         // date to accept, and for split boxes that invented day would be
         // typed into a box of its own, asserting a start date the user never
         // gave. See PRD 5.2.
-        if (!(field.el instanceof HTMLInputElement)) {
+        // Only a date can be split, and only a date. A textarea is not an
+        // HTMLInputElement either, so testing the element alone sent every
+        // textarea on every ATS into the date filler to be told it had no
+        // boxes to write into.
+        const split =
+          (field.kind === "date" || field.kind === "month") &&
+          !(field.el instanceof HTMLInputElement)
+
+        if (split) {
           return await fillDateParts(field.el, resolved.kind === "text" ? resolved.value : value)
         }
 
-        typeInto(field.el as HTMLInputElement, value)
+        typeInto(field.el as HTMLInputElement | HTMLTextAreaElement, value)
         return { kind: "wrote", value }
       }
 

@@ -39,9 +39,19 @@ function readBack(field: FieldSpec): string | null {
     }
 
     case "radiogroup": {
-      const chosen = field.options?.find(
-        (option) => option.el instanceof HTMLInputElement && option.el.checked
-      )
+      const chosen = field.options?.find((option) => {
+        if (!option.el) return false
+
+        // A real radio records its state in `checked`; an ARIA toggle records
+        // it in aria-pressed or aria-checked.
+        if (option.el instanceof HTMLInputElement) return option.el.checked
+
+        return (
+          option.el.getAttribute("aria-pressed") === "true" ||
+          option.el.getAttribute("aria-checked") === "true"
+        )
+      })
+
       return chosen ? chosen.label : null
     }
 

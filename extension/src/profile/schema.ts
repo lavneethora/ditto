@@ -132,6 +132,35 @@ export const EeoSchema = z.object({
 export type Eeo = z.infer<typeof EeoSchema>
 
 /**
+ * Application preferences.
+ *
+ * Deliberately three fields, not the five this section had before it was cut.
+ * The test is the same one the Answers section uses: keep only what has the
+ * same answer on every application.
+ *
+ * Notably absent is an earliest start date. That question now lives in
+ * Answers as free text, which is how forms actually ask it, and storing a date
+ * here as well would give two sources of truth for one question with no rule
+ * for which wins.
+ */
+export const PreferencesSchema = z.object({
+  /**
+   * Yes or no, and `null` for unanswered.
+   *
+   * One input covers both form shapes. A dropdown gets the option matched by
+   * the Yes/No synonyms in core/fill/options.ts, and a free-text box gets the
+   * word "Yes" or "No", because core/fill writes a boolean out as exactly
+   * that. The question has a two-state answer, so storing prose for it would
+   * only add a way to disagree with itself.
+   */
+  willingToRelocate: z.boolean().nullable().default(null),
+  /** "LinkedIn", "Referral", and so on. Required on most Workday forms. */
+  howDidYouHear: z.string().default(""),
+  desiredSalary: z.string().default("")
+})
+export type Preferences = z.infer<typeof PreferencesSchema>
+
+/**
  * Reusable saved answers for the open-text questions every application asks
  * differently ("Why this company?", "Anything else we should know?").
  *
@@ -178,6 +207,7 @@ export const ProfileSchema = z.object({
   work: z.array(WorkSchema).default([]),
   skills: z.array(z.string()).default([]),
   eeo: EeoSchema.default({}),
+  preferences: PreferencesSchema.default({}),
   answers: z.array(AnswerSchema).default([]),
   resume: ResumeSchema.nullable().default(null),
   settings: SettingsSchema.default({})
@@ -191,6 +221,7 @@ export const SECTIONS = [
   "work",
   "skills",
   "eeo",
+  "preferences",
   "answers"
 ] as const
 export type SectionId = (typeof SECTIONS)[number]
@@ -201,6 +232,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   work: "Work Experience",
   skills: "Skill",
   eeo: "Equal Employment",
+  preferences: "Preferences",
   answers: "Answers"
 }
 
@@ -246,6 +278,9 @@ export function isSectionComplete(profile: Profile, section: SectionId): boolean
       const e = profile.eeo
       return e.authorizedUS !== null && e.requiresSponsorship !== null
     }
+    case "preferences":
+      // Optional like Answers: an application is fillable without any of it.
+      return true
     case "answers":
       // Optional by design: these questions are worth answering once, but an
       // application is perfectly fillable without them. Marking the section

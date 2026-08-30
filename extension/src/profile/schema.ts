@@ -1,5 +1,12 @@
 import { z } from "zod"
 
+// zod is pinned to exactly 3.23.8, not a caret range. 3.25 restructured its
+// package exports for the v3/v4 split, and Parcel (which Plasmo uses) loses
+// the `z` binding through that re-export chain. The failure is a blank popup
+// with "(0, l.z).string is not a function" thrown at module load. esbuild
+// resolves it correctly, so vitest and the dev harness both pass while the
+// built extension is broken.
+
 /**
  * The single source of truth for everything Ditto knows about the user.
  *

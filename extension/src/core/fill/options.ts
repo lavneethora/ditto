@@ -1,3 +1,5 @@
+import { CA_PROVINCES, US_STATES } from "~profile/geo"
+
 import { canonical } from "../label"
 import type { FieldOption } from "../types"
 
@@ -88,6 +90,46 @@ export function pickTriState(options: FieldOption[], value: "yes" | "no" | "decl
 }
 
 /**
+ * Both spellings of every subdivision, keyed by the canonical form of each.
+ *
+ * A profile stores "Texas" because that is what a dropdown of state names
+ * offers. A location typeahead offers "Lubbock, TX, USA". Neither string
+ * contains the other and they share one significant word, so without this the
+ * two never match and a correct answer is reported as no option found.
+ */
+const SUBDIVISION_ALIASES: ReadonlyMap<string, string> = new Map(
+  [...US_STATES, ...CA_PROVINCES].flatMap(({ name, abbr }) => [
+    [canonical(name), abbr.toLowerCase()] as const,
+    [abbr.toLowerCase(), canonical(name)] as const
+  ])
+)
+
+/**
+ * The same value with any subdivision swapped for its other spelling.
+ *
+ * "Lubbock, Texas" also becomes "lubbock tx", which then shares a significant
+ * word with "Lubbock, TX, USA" and matches on overlap.
+ */
+function withSubdivisionAliases(value: string): string[] {
+  const words = canonical(value).split(" ")
+  const swapped: string[] = []
+
+  // Longest first, so "new york" is tried before "new".
+  for (let size = 3; size >= 1; size--) {
+    for (let i = 0; i + size <= words.length; i++) {
+      const phrase = words.slice(i, i + size).join(" ")
+      const alias = SUBDIVISION_ALIASES.get(phrase)
+
+      if (alias) {
+        swapped.push([...words.slice(0, i), alias, ...words.slice(i + size)].join(" "))
+      }
+    }
+  }
+
+  return swapped
+}
+
+/**
  * Match free text, such as a country, state, gender or "how did you hear".
  *
  * Falls back to word overlap, which is what makes "United States of America"
@@ -95,6 +137,19 @@ export function pickTriState(options: FieldOption[], value: "yes" | "no" | "decl
  * wanted words to appear so it cannot land on something unrelated.
  */
 export function pickText(options: FieldOption[], value: string): FieldOption | null {
+  const direct = pickExactish(options, value)
+  if (direct) return direct
+
+  // Retry with the state spelled the other way round.
+  for (const alias of withSubdivisionAliases(value)) {
+    const hit = pickExactish(options, alias)
+    if (hit) return hit
+  }
+
+  return null
+}
+
+function pickExactish(options: FieldOption[], value: string): FieldOption | null {
   const wanted = canonical(value)
   if (!wanted) return null
 

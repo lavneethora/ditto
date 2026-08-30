@@ -1,0 +1,118 @@
+<!--
+  Captured 2026-08-30 from a live public Workday tenant
+  (nvidia.wd5.myworkdayjobs.com), at .../apply/applyManually. No personal data:
+  nothing was filled before capture, and no account was created or signed into.
+
+  This is step 1 of 7. It is here because it is the step Ditto must refuse, and
+  because it is the only step reachable without an account. Steps 2 through 7
+  (My Information, My Experience, Application Questions, Voluntary Disclosures,
+  Self Identify, Review) sit behind the sign-in below, so their field markup is
+  not captured yet and no rule in the adapter guesses at it.
+
+  Structural features this fixture pins down:
+
+  1. The wizard is seven steps, and the step names are readable from the
+     `progressBar` before you have signed in. `progressBarActiveStep` carries
+     TWO labels: an aria-live one reading "current step 1 of 7" and the real
+     name. Reading textContent off the <li> concatenates both.
+  2. Every field is a `data-automation-id="formField-<name>"` wrapper holding a
+     `<label for>` and a control whose own `data-automation-id` is `<name>`.
+     That suffix is Workday's stable field identifier, the way `data-field-path`
+     is Ashby's, and it survives the emotion class names (`css-1wl1chj`) which
+     are generated per build and mean nothing.
+  3. Required is marked with `aria-required` on the control and an
+     `aria-hidden` `<abbr>*</abbr>` inside the label span.
+  4. `data-automation-id="beecatcher"` is a HONEYPOT. It is a visually hidden
+     text input named "website" whose label reads "This input is for robots
+     only, do not enter if you're human." Filling it marks the applicant as a
+     bot. An autofill tool that writes into every text input it finds fails the
+     application before a human ever reads it.
+  5. The real submit button is `aria-hidden` with `tabindex="-2"`, sitting
+     under an empty div with `role="button" aria-label="Submit"`
+     (`data-automation-id="click_filter"`). Both must be refused.
+-->
+<div data-automation-id="applyFlowPage" class="css-inhirh">
+  <div class="css-1gemwd5">
+    <div dir="ltr">
+      <button type="button" data-automation-id="backToJobPosting" role="link" class="css-1sbi3kp"><span class="css-pplshs">Back to Job Posting</span></button>
+    </div>
+    <h2 data-automation-id="jobTitleHeading" class="css-7yffhx">Senior Software Engineer, Security</h2>
+  </div>
+  <div aria-label="Application Progress" class="css-nt23zb">
+    <ol data-automation-id="progressBar" class="css-1r5uv2c">
+      <li data-automation-id="progressBarActiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">current step 1 of 7</label>
+        <label class="css-1uso8fp">Create Account/Sign In</label>
+      </li>
+      <li data-automation-id="progressBarInactiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">step 2 of 7</label>
+        <label class="css-1u51z1n">My Information</label>
+      </li>
+      <li data-automation-id="progressBarInactiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">step 3 of 7</label>
+        <label class="css-1u51z1n">My Experience</label>
+      </li>
+      <li data-automation-id="progressBarInactiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">step 4 of 7</label>
+        <label class="css-1u51z1n">Application Questions</label>
+      </li>
+      <li data-automation-id="progressBarInactiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">step 5 of 7</label>
+        <label class="css-1u51z1n">Voluntary Disclosures</label>
+      </li>
+      <li data-automation-id="progressBarInactiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">step 6 of 7</label>
+        <label class="css-1u51z1n">Self Identify</label>
+      </li>
+      <li data-automation-id="progressBarInactiveStep" class="css-1dczh83">
+        <label aria-live="polite" class="css-vv2f43">step 7 of 7</label>
+        <label class="css-1u51z1n">Review</label>
+      </li>
+    </ol>
+  </div>
+  <div class="css-1j489tx">
+    <div class="css-g7hkny">
+      <div class="css-19ssb29">
+        <div data-automation-id="signInContent" class="css-ecyovj">
+          <div dir="ltr">
+            <div>
+              <h3 id="authViewTitle" class="css-ll0fik">Sign In</h3>
+              <form data-automation-id="signInFormo" class="css-w0sgi8">
+                <div data-automation-id="formField-email" class="css-7t35fz">
+                  <label for="input-6" class="css-1ud5i8o"><span>Email Address<abbr aria-hidden="true" class="css-1fc83zd">*</abbr></span></label>
+                  <div class="css-15rz5ap">
+                    <div><input type="text" data-automation-id="email" id="input-6" aria-required="true" aria-invalid="false" autocomplete="email" class="css-1wl1chj" value=""></div>
+                    <div class="css-7bgbiz"></div>
+                  </div>
+                </div>
+                <div class="css-1kxrhf3">
+                  <div data-automation-id="formField-password" class="css-7t35fz">
+                    <label for="input-7" class="css-1ud5i8o"><span>Password<abbr aria-hidden="true" class="css-1fc83zd">*</abbr></span></label>
+                    <div class="css-15rz5ap">
+                      <div><input type="password" data-automation-id="password" id="input-7" aria-required="true" autocomplete="current-password" class="css-1wl1chj" value=""></div>
+                      <div class="css-7bgbiz"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="css-1s1r74k">
+                  <div data-automation-id="noCaptchaWrapper" style="position: relative">
+                    <div font-size="14" height="40" aria-label="Submit" role="button" tabindex="0" data-automation-id="click_filter" class="css-k9g95y"></div>
+                    <button type="submit" data-automation-id="signInSubmitButton" font-size="14" height="40" class="css-jj5uf0" tabindex="-2" aria-hidden="true">Sign In</button>
+                  </div>
+                </div>
+              </form>
+              <div class="css-2oj4py">Don't have an account yet?<button data-automation-id="createAccountLink" class="css-14pfav7">Create Account</button></div>
+              <div class="css-2oj4py"><button data-automation-id="forgotPasswordLink" class="css-14pfav7">Forgot your password?</button></div>
+            </div>
+          </div>
+        </div>
+        <div>
+          <div class="css-79elbk">
+            <label for="585a6e3f-78f6-4651-9f25-12b6a5d19548" class="css-i19yjz">Enter website. This input is for robots only, do not enter if you're human.</label>
+            <input data-automation-id="beecatcher" id="585a6e3f-78f6-4651-9f25-12b6a5d19548" name="website" type="text" class="css-umjazw">
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>

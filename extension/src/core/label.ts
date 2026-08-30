@@ -50,7 +50,21 @@ export function canonical(raw: string): string {
 function ownText(el: Element): string {
   const clone = el.cloneNode(true) as HTMLElement
 
-  clone.querySelectorAll("input, select, textarea, button, option, svg, script, style").forEach((n) => n.remove())
+  // Beyond the controls themselves, drop the chrome that lives inside a
+  // field wrapper and is never part of its label: typeahead dropdowns, and
+  // live regions whose whole job is announcing transient status.
+  //
+  // Lever's location field wraps its dropdown inside the same <label> as the
+  // input, so without this the label resolves to "Current location No
+  // location found. Try entering a different location Loading", which then
+  // fails an exact-match rule and falls through to the wrong one.
+  clone
+    .querySelectorAll(
+      "input, select, textarea, button, option, svg, script, style," +
+        " [aria-live], [role='log'], [role='status'], [role='alert']," +
+        " [class*='dropdown'], [class*='autocomplete'], [class*='typeahead']"
+    )
+    .forEach((n) => n.remove())
 
   return normalizeLabel(clone.textContent ?? "")
 }
@@ -187,6 +201,48 @@ export function resolveLabel(el: Element, doc: Document = el.ownerDocument): str
   for (const strategy of strategies) {
     const label = strategy()
     if (label) return label
+  }
+
+  return ""
+}
+
+/**
+ * The question for a radio or checkbox group.
+ *
+ * A group's question is the text in its container that is not part of any
+ * option, so this removes each option's row and reads what is left.
+ *
+ * Reading the container's text wholesale is what a naive implementation does,
+ * and on a US equal-employment block it produces a label containing every
+ * option's legal description. That text mentions "Hispanic or Latino", so the
+ * matcher scored it as the Hispanic question, weight 90, over the race
+ * question at 80, and then tried to answer a race dropdown with "no". The
+ * question is "Race"; everything after it belongs to the options.
+ */
+export function resolveGroupLabel(inputs: Element[]): string {
+  if (inputs.length === 0) return ""
+
+  // Smallest element containing every member of the group.
+  let container: Element | null = inputs[0].parentElement
+  while (container && !inputs.every((input) => container!.contains(input))) {
+    container = container.parentElement
+  }
+
+  for (let depth = 0; depth < 4 && container; depth++) {
+    const clone = container.cloneNode(true) as HTMLElement
+
+    // Drop each option's row, not just its input, so the option's own text
+    // goes with it.
+    clone.querySelectorAll("input[type='radio'], input[type='checkbox']").forEach((input) => {
+      const row = input.closest("label, li, [role='radio'], [role='option']")
+      if (row && row !== clone) row.remove()
+      else input.remove()
+    })
+
+    const text = ownText(clone)
+    if (text) return text
+
+    container = container.parentElement
   }
 
   return ""

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import type { Adapter, FieldSpec, FillReport, FillResult } from "~core/types"
 import { analyze, autofill } from "~core/engine"
-import { summaryLine } from "~core/report"
+import { actionableItems, summaryLine } from "~core/report"
 import { describeResume } from "~profile/resume"
 import { Wordmark } from "~ui/Logo"
 import { ProfileModal } from "~ui/modal/ProfileModal"
@@ -217,9 +217,12 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
 
           {report && (
             <>
-              <ResultGroup title="Needs you" results={[...report.errors, ...report.needsYou]} onReveal={reveal} />
+              {/* One list for everything still on the user. Skipped fields
+                  used to sit under their own heading, which read as handled
+                  when they are really just empty. Each row keeps its own mark,
+                  so why it is there is still visible. */}
+              <ResultGroup title="Needs you" results={actionableItems(report)} onReveal={reveal} />
               <ResultGroup title="Filled" results={report.filled} onReveal={reveal} />
-              <ResultGroup title="Skipped" results={report.skipped} onReveal={reveal} />
             </>
           )}
 

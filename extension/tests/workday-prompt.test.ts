@@ -327,3 +327,63 @@ describe("a query sitting in the box is not a filled field", () => {
     expect(readComboboxValue(document.getElementById("school")!)).toBe("")
   })
 })
+
+describe("a menu that belongs to another field", () => {
+  /**
+   * Reported live on Greenhouse: the Veteran Status question was answered
+   * "Norfolk Island+672", read out of the phone number's country list.
+   *
+   * Menus are left mounted with their options in them, so a scan of the page
+   * finds several at once, and the fallback took whichever had something in
+   * it.
+   */
+
+  const twoFields = () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="field" id="phone-field">
+         <input id="phone-country" role="combobox">
+         <ul role="listbox" id="phone-list">
+           <li role="option"><div>Norfolk Island+672</div></li>
+           <li role="option"><div>United States+1</div></li>
+         </ul>
+       </div>
+       <div class="field" id="veteran-field">
+         <input id="veteran_status" role="combobox">
+         <ul role="listbox" id="veteran-list"></ul>
+       </div>`
+    )
+
+    return document.getElementById("veteran_status") as HTMLInputElement
+  }
+
+  it("refuses to answer from the neighbour's options", async () => {
+    const result = await selectFromCombobox(twoFields(), "I am not a protected veteran")
+
+    expect(result.ok).toBe(false)
+    expect(result.value).toBeUndefined()
+  })
+
+  it("does not report a neighbour's option as the answer", async () => {
+    const result = await selectFromCombobox(twoFields(), "no")
+
+    expect(result.value).not.toBe("Norfolk Island+672")
+  })
+
+  it("still finds its own menu when that one is populated", async () => {
+    const input = twoFields()
+    document.getElementById("veteran-list")!.innerHTML = row("I am not a protected veteran")
+
+    document
+      .querySelector<HTMLElement>("#veteran-list [data-automation-id='promptOption']")!
+      .addEventListener("click", () => {
+        input.value = "I am not a protected veteran"
+      })
+
+    const result = await selectFromCombobox(input, "I am not a protected veteran")
+
+    expect(result.ok).toBe(true)
+    expect(result.value).toBe("I am not a protected veteran")
+  })
+})

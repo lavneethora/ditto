@@ -153,3 +153,39 @@ describe("an Ashby application, label by label", () => {
     )
   })
 })
+
+describe("a Greenhouse application, label by label", () => {
+  /**
+   * Labels verbatim from a live Stripe posting on Greenhouse, read in the
+   * browser. Two of these were being answered with the city of a past job.
+   */
+
+  it("reads the applicant's own location at the top of the form", () => {
+    // Greenhouse puts this next to the name and email, outside any job block,
+    // and it was being answered with the city of a past job.
+    //
+    // The city rather than the full location, which suits the autocomplete
+    // behind it: a bare "Lubbock" returns results where "Lubbock, Texas"
+    // often returns none. Either way it is the applicant's, not an employer's.
+    expect(keyFor("Location (City)")).toBe("personal.city")
+  })
+
+  it("does not answer a location PREFERENCE with somewhere you used to work", () => {
+    // Asks which office you would like, out of the employer's. Not a place you
+    // have lived.
+    expect(keyFor("What is your first location preference?")).toBeNull()
+    expect(keyFor("Second location preference")).toBeNull()
+    expect(keyFor("Third location preference")).toBeNull()
+  })
+
+  it("still reads a job's own location inside its block", () => {
+    expect(keyFor("Location", { section: "Work Experience 2" })).toBe("work[].location")
+  })
+
+  it("reads the veteran question and answers it plainly", () => {
+    // Options on that form are "I am not a protected veteran", "I identify as
+    // one or more of the classifications of a protected veteran", and "I don't
+    // wish to answer". A stored no must take the first, not the last.
+    expect(keyFor("Veteran Status")).toBe("eeo.veteran")
+  })
+})

@@ -340,6 +340,17 @@ function associatedLabels(el: Element): Element[] {
   // `aria-labelledby="label18"` wrapping a dropzone, a button and a hidden
   // file input, and the asterisk lives in label18. Read from the input alone
   // there is no label at all, and a required resume reports itself optional.
+  /**
+   * The legend of the fieldset this control sits in.
+   *
+   * Workday's questionnaire puts the whole question in a `<legend>` and the
+   * required asterisk inside it, often at the end of the last bullet rather
+   * than anywhere near the control. Without reading the legend, ten required
+   * questions all reported themselves optional.
+   */
+  const legend = el.closest("fieldset")?.querySelector("legend")
+  if (legend) found.push(legend)
+
   const labelledBy = el.closest("[aria-labelledby]")
 
   for (const source of new Set([el, labelledBy].filter(Boolean) as Element[])) {

@@ -295,8 +295,21 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
     case "eeo.gender":
       return text(profile.eeo.gender, "gender")
 
-    case "eeo.race":
-      return text(profile.eeo.race, "race or ethnicity")
+    case "eeo.race": {
+      const saved = profile.eeo.race.trim()
+      if (!saved) return { kind: "none", reason: "No race or ethnicity saved" }
+
+      /**
+       * Workday asks this as a multi-select, because "Two or More Races" is
+       * an answer someone gives by picking two.
+       *
+       * The stored value is one string, so this offers it as a list of one
+       * rather than as text the multi-select has no way to accept.
+       */
+      return field.kind === "multiselect"
+        ? { kind: "list", value: [saved] }
+        : { kind: "text", value: saved }
+    }
 
     case "eeo.sexualOrientation":
       return text(profile.eeo.sexualOrientation, "sexual orientation")

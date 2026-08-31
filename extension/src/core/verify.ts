@@ -258,7 +258,7 @@ function uploaderShowing(field: FieldSpec): Element | null {
  * Whether what came back out is what went in.
  *
  * Compared loosely, because controls legitimately reformat: a phone box turns
- * "8324180086" into "(832) 418-0086", and a select echoes the option label
+ * "5551234567" into "(555) 123-4567", and a select echoes the option label
  * rather than the value written. Loose here means normalized equality or
  * containment in either direction, which tolerates reformatting without
  * accepting an unrelated value.

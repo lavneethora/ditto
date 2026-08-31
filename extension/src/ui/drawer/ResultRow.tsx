@@ -77,7 +77,12 @@ export function ResultRow({
   onReveal?: () => void
   onTeach?: (key: string) => void
 }) {
-  const detail = result.status === "filled" ? result.value : result.reason
+  // A filled row can still have something to say: a multi-select adds what it
+  // can find, and which values it could not is worth knowing.
+  const detail =
+    result.status === "filled"
+      ? [result.value, result.reason].filter(Boolean).join(" — ")
+      : result.reason
 
   // Nothing to teach about a field that was filled, or one with no question
   // to key a mapping on.

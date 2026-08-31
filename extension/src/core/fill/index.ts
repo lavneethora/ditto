@@ -83,6 +83,33 @@ function asText(resolved: Resolved, kind: FieldSpec["kind"]): string | null {
  * Only when the label names exactly one part. "Start date (MM/YYYY)" names
  * two and gets the formatted value as before.
  */
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+]
+
+/**
+ * The ways a control might want one part of a date, best first.
+ *
+ * A month box that is a dropdown lists names, not numbers: writing "05" into
+ * a list of Januarys and Mays matches nothing, and "Please select your
+ * graduation month" went unanswered. A month box that is a text field wants
+ * the number. Offering both, in the order a form is most likely to use them,
+ * costs nothing and covers either.
+ */
+function dateChoices(label: string, value: string): string[] | null {
+  const piece = datePiece(label, value)
+  if (piece === null) return null
+
+  const asked = canonical(label)
+  if (!/\bmonth\b/.test(asked)) return [piece]
+
+  const index = Number(piece)
+  const name = MONTH_NAMES[index - 1]
+
+  return name ? [name, piece, String(index)] : [piece]
+}
+
 function datePiece(label: string, value: string): string | null {
   const iso = value.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/)
   if (!iso) return null
@@ -228,6 +255,26 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
    * single value, and if that value is not on offer the question goes to the
    * user, which is the honest outcome.
    */
+  /**
+   * A control asking for one part of a date, offered that part in the
+   * spellings it might use.
+   */
+  if (resolved.kind === "text" && (field.kind === "select" || field.kind === "combobox")) {
+    const choices = dateChoices(field.label, resolved.value)
+
+    if (choices) {
+      for (const choice of choices) {
+        const outcome = await fill({ ...field, kind: field.kind }, { kind: "text", value: choice })
+        if (outcome.kind === "wrote") return outcome
+      }
+
+      return {
+        kind: "needs_you",
+        reason: `Nothing here matches "${choices[0]}"`
+      }
+    }
+  }
+
   if (resolved.kind === "list" && !acceptsMany(field)) {
     const first = resolved.value.find((item) => item.trim().length > 0)
     if (!first) return { kind: "skipped", reason: "Nothing saved to put here" }

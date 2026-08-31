@@ -72,14 +72,30 @@ const SEARCH_WAIT_MS = 3000
 const SEARCH_BUDGET_MS = 3800
 
 /**
- * How long a stable list is given to turn out to be stale.
+ * The share of a wait an UNREPLACED list may be treated as the answer after.
  *
  * Plenty of lists are complete the moment they appear and never change, and
- * waiting the full search budget on those costs a second per value for
- * nothing. But a list that has not moved since typing is also exactly what a
- * search still in flight looks like, so it gets this long to prove otherwise.
+ * waiting the whole budget on those costs a second per value for nothing. But
+ * a list that has not moved since typing is also exactly what a search still
+ * in flight looks like, so it has to sit out most of the budget first.
+ *
+ * A share rather than a fixed number, because this is used with two budgets
+ * that differ by a factor of three. At a flat 1200ms the long one gave up a
+ * third of the way through, and Workday's skills box takes a couple of
+ * seconds to answer: what came back was the previous skill's results, sitting
+ * perfectly still, and every skill after the first was matched against the one
+ * before it.
  */
-const SETTLE_GRACE_MS = 1200
+const SETTLE_GRACE_SHARE = 0.75
+
+/**
+ * How long an empty list is given AFTER a search has been asked for.
+ *
+ * This is also how long a value that is simply not in the list takes to be
+ * declared missing, and a profile with a few unusual skills pays it once per
+ * skill, so it is capped well short of the search budget.
+ */
+const EMPTY_SEARCH_WAIT_MS = 1800
 
 /**
  * The ceiling on one attempt at one value, across every phase.
@@ -359,10 +375,22 @@ async function waitForResults(
   control: Element,
   wanted: string,
   budgetMs: number,
-  stale: ReadonlySet<Element>
+  stale: ReadonlySet<Element>,
+  /**
+   * Whether a search has been asked for and not yet answered.
+   *
+   * Changes what an empty list means. Before the search, empty means the box
+   * filters as you type and has nothing to show, so there is no point waiting
+   * and every reason to press Enter. After it, empty is exactly what a query
+   * in flight looks like.
+   */
+  awaitingSearch = false
 ): Promise<FieldOption[]> {
   const started = Date.now()
   const deadline = started + budgetMs
+
+  // See SETTLE_GRACE_SHARE.
+  const grace = budgetMs * SETTLE_GRACE_SHARE
   let options: FieldOption[] = []
   let previous: string | null = null
   let atStart: string | null = null
@@ -391,7 +419,27 @@ async function waitForResults(
      * that would fetch something. This is what keeps the generous window above
      * from costing a second on every value typed into a box that needs Enter.
      */
-    if (options.length === 0 && unchanged >= 3 && Date.now() - started > 300) return options
+    if (options.length === 0 && unchanged >= 3) {
+      /**
+       * Before a search, empty means the box has nothing to show and the
+       * sooner Enter is pressed the better. After one, empty is what a query
+       * in flight looks like, and leaving at 300ms abandoned the search that
+       * was about to answer.
+       *
+       * Capped rather than given the whole budget, because this is also how a
+       * value that is genuinely not in the list is declared missing, and every
+       * one of those is paid for out of the user's time.
+       *
+       * And only while a list is actually on screen. Lever's location box
+       * renders no menu at all for a query it cannot answer, and waiting on a
+       * list that does not exist added a second and a half to every one of
+       * them before the typed text was committed instead.
+       */
+      const enough =
+        awaitingSearch && menu ? Math.min(grace, EMPTY_SEARCH_WAIT_MS) : 300
+
+      if (Date.now() - started > enough) return options
+    }
 
     /**
      * Settled means this query's results arrived and the answer is not among
@@ -403,7 +451,7 @@ async function waitForResults(
      * slow search looked settled after three quiet polls and Ditto moved on
      * before the real answer landed.
      */
-    if (options.length > 0 && unchanged >= 3 && (replaced || Date.now() - started > SETTLE_GRACE_MS)) {
+    if (options.length > 0 && unchanged >= 3 && (replaced || Date.now() - started > grace)) {
       return options
     }
 
@@ -739,7 +787,8 @@ export async function selectFromCombobox(
           input,
           wanted,
           Math.min(SEARCH_WAIT_MS, Math.max(0, deadline - Date.now())),
-          stale
+          stale,
+          true
         )
         choice = pickAmong(options, wanted)
       }

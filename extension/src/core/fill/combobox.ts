@@ -57,7 +57,17 @@ const MAX_WAIT_MS = 1500
  * sent an Enter it did not ask for. Spending the search budget there is what
  * left too little for the search that had not been asked for yet.
  */
-const LIVE_FILTER_LOOK_MS = 400
+/**
+ * How long a box that filters as you type gets before Enter is tried.
+ *
+ * Long enough for a list that is on its way. Ashby's dropdowns populate after
+ * a beat, and at four hundred milliseconds Ditto had already given up and
+ * moved on, which is what "it doesn't let the list populate" looks like from
+ * the outside. Kept from costing that on every Workday skill by the empty-list
+ * rule below: a menu that comes back empty and stays empty is answered
+ * quickly, because nothing is coming without Enter.
+ */
+const LIVE_FILTER_LOOK_MS = 1400
 const SEARCH_WAIT_MS = 3000
 const SEARCH_BUDGET_MS = 3800
 
@@ -339,6 +349,15 @@ async function waitForResults(
 
     unchanged = current === previous ? unchanged + 1 : 0
     previous = current
+
+    /**
+     * An empty list that stays empty is an answer too.
+     *
+     * Nothing is on its way, so waiting out the budget only delays the Enter
+     * that would fetch something. This is what keeps the generous window above
+     * from costing a second on every value typed into a box that needs Enter.
+     */
+    if (options.length === 0 && unchanged >= 3 && Date.now() - started > 300) return options
 
     /**
      * Settled means this query's results arrived and the answer is not among

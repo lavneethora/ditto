@@ -136,6 +136,14 @@ export const PROFILE_KEYS = [
   "eligibility.citizenships",
   "eligibility.citizenOfNamedCountries",
   "eligibility.boundByAgreements",
+  /**
+   * The only key that is not a fact about the applicant.
+   *
+   * "I accept the Terms and Conditions" has one answer, it is required to
+   * apply, and nobody has ever declined it and gone on to submit. Storing it
+   * in the profile would be asking a question with one answer.
+   */
+  "forms.acceptTerms",
 
   "eeo.authorizedUS",
   "eeo.requiresSponsorship",

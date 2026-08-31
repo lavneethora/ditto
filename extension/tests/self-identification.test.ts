@@ -146,3 +146,63 @@ describe("accepting the terms of applying", () => {
     expect(keyFor("I certify that the information provided is true and complete")).toBeNull()
   })
 })
+
+describe("labels written in the plural", () => {
+  const field = (label: string, kind: FieldSpec["kind"] = "combobox"): FieldSpec =>
+    ({ id: "q", el: document.createElement("input"), kind, label, required: true }) as FieldSpec
+
+  const keyFor = (label: string, kind?: FieldSpec["kind"]) => match(field(label, kind))?.key ?? null
+
+  it("recognises Veterans status", () => {
+    // Workday's own label. `\bveteran\b` cannot match "veterans": the
+    // boundary has to fall right after the n, and there is an s there. A
+    // required self-identification was skipped over one letter.
+    expect(keyFor("Veterans status")).toBe("eeo.veteran")
+  })
+
+  it("still recognises the singular", () => {
+    expect(keyFor("Veteran Status")).toBe("eeo.veteran")
+    expect(keyFor("Are you a protected veteran?")).toBe("eeo.veteran")
+  })
+
+  it("recognises races and ethnic groups", () => {
+    expect(keyFor("Race/Ethnicity")).toBe("eeo.race")
+    expect(keyFor("Races")).toBe("eeo.race")
+    expect(keyFor("Ethnic Groups")).toBe("eeo.race")
+  })
+
+  it("finds the question under a wall of legal text", () => {
+    // Workday puts five numbered paragraphs of VEVRAA text above these
+    // fields, and a label resolver can pick the lot up.
+    const preamble =
+      "Voluntary Self-Identification. This employer is a Government contractor subject to the Vietnam Era Veterans Readjustment Assistance Act of 1974, as amended by the Jobs for Veterans Act of 2002. Submission of this information is voluntary. Veterans status"
+
+    expect(keyFor(preamble)).toBe("eeo.veteran")
+  })
+})
+
+describe("race asked as a multi-select", () => {
+  const field = (kind: FieldSpec["kind"]): FieldSpec =>
+    ({ id: "r", el: document.createElement("input"), kind, label: "Race/Ethnicity", required: true }) as FieldSpec
+
+  const answer = (kind: FieldSpec["kind"], race: string) => {
+    const f = field(kind)
+    return resolve(match(f)!, f, ProfileSchema.parse({ eeo: { race } }))
+  }
+
+  it("offers a list, since Two or More Races is answered by picking two", () => {
+    expect(answer("multiselect", "Asian")).toEqual({ kind: "list", value: ["Asian"] })
+  })
+
+  it("still offers plain text to a single picker", () => {
+    expect(answer("combobox", "Asian")).toEqual({ kind: "text", value: "Asian" })
+  })
+
+  it("says what is missing rather than skipping silently", () => {
+    const f = field("multiselect")
+    expect(resolve(match(f)!, f, ProfileSchema.parse({}))).toEqual({
+      kind: "none",
+      reason: "No race or ethnicity saved"
+    })
+  })
+})

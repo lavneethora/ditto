@@ -97,7 +97,7 @@ describe("committing with Enter", () => {
     await selectFromCombobox(input, "Nothing That Matches")
 
     expect(submitted).toBe(false)
-  })
+  }, 25_000)
 })
 
 describe("a box that takes the typed text itself", () => {

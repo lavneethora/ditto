@@ -56,7 +56,9 @@ describe("making a write visible to React", () => {
 
     // The cache agreeing with the new value is exactly the case that was
     // silently doing nothing.
-    input._valueTracker!.setValue("Texas Tech University")
+    ;(input as unknown as { _valueTracker: { setValue(v: string): void } })._valueTracker.setValue(
+      "Texas Tech University"
+    )
     setNativeValue(input, "Texas Tech University")
     input.dispatchEvent(new Event("input", { bubbles: true }))
 

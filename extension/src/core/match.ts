@@ -1,4 +1,4 @@
-import { canonical, singularize } from "./label"
+import { canonical, normalizeWording, singularize } from "./label"
 import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 
 /**
@@ -745,9 +745,25 @@ export function match(
   const asWritten = bestFor(label)
   if (asWritten) return asWritten
 
-  const singular = singularize(label)
+  /**
+   * Two normalisations, each tried only if everything before it missed.
+   *
+   * Morphology first, then vocabulary: "Veterans status" is the same question
+   * as "Veteran Status", and "Alma Mater" is the same question as "School".
+   * Neither changes a label that already matched, so both can only turn a
+   * miss into a hit.
+   */
+  for (const spelling of [singularize(label), normalizeWording(label)]) {
+    if (spelling === label) continue
 
-  return singular === label ? null : bestFor(singular)
+    const found = bestFor(spelling)
+    if (found) return found
+  }
+
+  // Both at once, for a label that is reworded AND pluralised.
+  const both = normalizeWording(singularize(label))
+
+  return both === label ? null : bestFor(both)
 }
 
 /**

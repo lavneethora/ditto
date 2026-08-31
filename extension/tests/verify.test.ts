@@ -46,10 +46,10 @@ describe("a write that landed", () => {
   it("tolerates a control that reformats the value", () => {
     const input = document.createElement("input")
     // A phone field that reformats what it was given is still filled.
-    input.value = "(832) 418-0086"
+    input.value = "(555) 123-4567"
     document.body.append(input)
 
-    const result = verify(spec(input, { label: "Phone" }), { kind: "wrote", value: "8324180086" })
+    const result = verify(spec(input, { label: "Phone" }), { kind: "wrote", value: "5551234567" })
 
     expect(result.status).toBe("filled")
   })

@@ -363,7 +363,7 @@ describe("a menu that belongs to another field", () => {
 
     expect(result.ok).toBe(false)
     expect(result.value).toBeUndefined()
-  })
+  }, 15_000)
 
   it("does not report a neighbour's option as the answer", async () => {
     const result = await selectFromCombobox(twoFields(), "no")

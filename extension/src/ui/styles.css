@@ -485,6 +485,12 @@
   border: 1px solid var(--ditto-border);
   border-radius: var(--ditto-r-panel);
   padding: 18px;
+
+  /* Cards holding more than one control had their second sitting flush
+     against the first, which read as one control with a stray label. */
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .ditto-card-head {

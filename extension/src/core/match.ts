@@ -33,6 +33,32 @@ export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
   "preferences.willingToRelocate"
 ])
 
+/**
+ * A question asking the applicant to consent to something.
+ *
+ * Never answered, whatever a rule or a saved snippet would otherwise make of
+ * it. Workday's questionnaire carries two: whether the employer may assess
+ * the application with AI, and whether it may keep the data to match against
+ * future openings. Both are phrased "By selecting Yes, you consent".
+ *
+ * This is the same rule as Lever's marketing checkboxes, which Ditto also
+ * refuses, and it matters more here: one of these was matched to
+ * `work[].company`, off the words "how Company processes your personal data"
+ * buried in the privacy notice. A consent given by a filler is not a consent,
+ * and the person it binds is the user.
+ */
+export function isConsentQuestion(label: string): boolean {
+  const text = canonical(label)
+
+  return (
+    /\byou consent\b/.test(text) ||
+    /\bdo you consent\b/.test(text) ||
+    /\bdecline consent\b/.test(text) ||
+    /\bconsent (?:to|for) (?:the )?(?:use|processing|collection|sharing|transfer)\b/.test(text) ||
+    /\byour consent\b/.test(text)
+  )
+}
+
 export interface MatchResult {
   key: ProfileKey
   /** Whether the stored boolean must be flipped before writing. */
@@ -148,14 +174,16 @@ const RULES: MatchRule[] = [
   {
     key: "eeo.requiresSponsorship",
     allowOnQuestion: true,
-    test: /\b(?:require|requires|requiring|need|needs|needing|seek|seeking)\b[^.?]{0,40}\bsponsorship\b/,
+    // "Will you need to be sponsored for a work visa" asks the same thing
+    // without ever using the noun.
+    test: /\b(?:require|requires|requiring|need|needs|needing|seek|seeking)\b[^.?]{0,40}\bsponsor(?:ship|ed)\b/,
     invert: false,
     weight: 90
   },
   {
     key: "eeo.requiresSponsorship",
     allowOnQuestion: true,
-    test: /\bsponsorship\b/,
+    test: /\bsponsor(?:ship|ed)\b/,
     invert: false,
     weight: 50
   },
@@ -227,9 +255,15 @@ const RULES: MatchRule[] = [
     allowOnQuestion: true
   },
   {
+    /**
+     * Asking about the applicant, not listing who qualifies for something
+     * else. Any question about work authorisation names permanent residents
+     * in passing, and a bare mention used to be enough to answer it as though
+     * it had asked.
+     */
     key: "eligibility.permanentResident",
-    test: /\bpermanent\s+resident\b|\bgreen\s+card\b/,
-    weight: 95,
+    test: /\bare\s+you\b[^?]{0,40}\b(?:permanent\s+resident|green\s+card)\b|\bdo\s+you\s+(?:hold|have)\b[^?]{0,40}\b(?:permanent\s+resident|green\s+card)\b/,
+    weight: 90,
     invert: false,
     allowOnQuestion: true
   },
@@ -415,6 +449,11 @@ export function match(
 ): MatchResult | null {
   const label = canonical(field.label)
   const section = sectionKind(field.section)
+
+  // Nothing in the profile answers a request for consent, and a rule that
+  // thinks otherwise has misread it. Refused here as well as in the engine,
+  // so a consent question is never even counted as one Ditto recognises.
+  if (isConsentQuestion(field.label)) return null
 
   // A site's own semantic identifier beats everything, including autocomplete:
   // it is exact rather than inferred.

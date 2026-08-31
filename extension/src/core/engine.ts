@@ -2,7 +2,7 @@ import type { Profile } from "~profile/schema"
 
 import { fill } from "./fill"
 import { clickStructural } from "./fill/dom"
-import { match } from "./match"
+import { isConsentQuestion, match } from "./match"
 import { buildReport } from "./report"
 import { resolve, resolveUnmatched } from "./resolve"
 import type { Resolved } from "./resolve"
@@ -242,11 +242,24 @@ export async function autofill({
 
       const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
 
-      // Unmatched open-text questions still get a shot at a saved answer, since
-      // covering questions the rules cannot anticipate is the point of snippets.
-      const resolved = matched
-        ? resolve(matched, field, profile)
-        : resolveUnmatched(field, profile)
+      /**
+       * Consent is the user's to give, before anything else is considered.
+       *
+       * Checked here rather than left to the rules, because the rules are the
+       * problem: one of Workday's AI consent questions matched
+       * `work[].company`, off the words "how Company processes your personal
+       * data" in the privacy notice at the bottom of it. A saved snippet could
+       * do the same. A consent given by a filler is not a consent, and the
+       * person it binds is the user.
+       */
+      const resolved = isConsentQuestion(field.label)
+        ? ({ kind: "needs_you", reason: "This one is your decision to make" } as const)
+        : matched
+          ? resolve(matched, field, profile)
+          : // Unmatched open-text questions still get a shot at a saved answer,
+            // since covering questions the rules cannot anticipate is the point
+            // of snippets.
+            resolveUnmatched(field, profile)
 
       const attempt = await fill(field, siteSpelling(resolved, matched?.key, adapter))
       const result = verify(field, attempt, matched?.key)

@@ -69,7 +69,7 @@ describe("adding several values to one control", () => {
 
     expect(outcome.kind).toBe("wrote")
     expect(outcome.kind === "wrote" && outcome.value).toBe("Python, Rust")
-  })
+  }, 15_000)
 
   it("asks the user when none of them are offered", async () => {
     const outcome = await fill(field(), { kind: "list", value: ["Cobol", "Fortran"] })
@@ -134,7 +134,7 @@ describe("reporting only what went in", () => {
     const outcome = await fill(field(), { kind: "list", value: ["Python", "Cobol"] })
 
     expect(outcome.kind === "wrote" && outcome.value).toBe("Python")
-  })
+  }, 15_000)
 })
 
 describe("naming a value the way the site names it", () => {

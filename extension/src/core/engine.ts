@@ -300,7 +300,7 @@ export async function autofill({
        * verifying immediately reads the gap between the two and reports a
        * resume that is on its way as one the form refused.
        */
-      if (field.kind === "file" && attempt.kind === "wrote") await settleFile(field)
+      if (field.kind === "file" && attempt.kind === "wrote") await settleFile(field, attempt.value)
 
       const result = verify(field, attempt, matched?.key)
 

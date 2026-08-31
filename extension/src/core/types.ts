@@ -133,6 +133,9 @@ export const PROFILE_KEYS = [
   "eligibility.atLeast18",
   "eligibility.residentOutsideUS",
   "eligibility.residentCountry",
+  "eligibility.citizenships",
+  "eligibility.citizenOfNamedCountries",
+  "eligibility.boundByAgreements",
 
   "eeo.authorizedUS",
   "eeo.requiresSponsorship",

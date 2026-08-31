@@ -63,3 +63,28 @@ describe("a multi-select holding what was written", () => {
     expect(verify(field, wrote("Python, Java")).status).toBe("error")
   })
 })
+
+describe("skills a multi-select could not place", () => {
+  it("names them instead of dropping them in silence", () => {
+    // A run that placed thirteen and could not place four looked exactly like
+    // one that placed all seventeen. The count was visibly short and there
+    // was no way to learn which four.
+    const field = skillsField(["Python", "Java"])
+
+    const result = verify(field, {
+      kind: "wrote",
+      value: "Python, Java",
+      note: "not offered here: Terraform, Kubernetes"
+    })
+
+    expect(result.status).toBe("filled")
+    expect(result.reason).toContain("Terraform")
+    expect(result.reason).toContain("Kubernetes")
+  })
+
+  it("says nothing extra when everything landed", () => {
+    const field = skillsField(["Python", "Java"])
+
+    expect(verify(field, wrote("Python, Java")).reason).toBeUndefined()
+  })
+})

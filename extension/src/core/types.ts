@@ -312,6 +312,15 @@ export interface FillResult {
   /** Why it is not filled, for every other status. */
   reason?: string
   /**
+   * Which layer answered, when it was not an ordinary rule.
+   *
+   * Only set for the two that are worth knowing about: a question the user
+   * taught, and a label the model recognised by meaning. A rule match says
+   * nothing here, because that is the normal case and labelling it would make
+   * every row noisy.
+   */
+  via?: string
+  /**
    * The control this row is about.
    *
    * Carried rather than looked up later. `fieldId` is a per-scan counter, and

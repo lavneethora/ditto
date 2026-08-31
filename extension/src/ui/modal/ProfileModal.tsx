@@ -12,6 +12,7 @@ import { Toggle } from "~ui/components"
 import { AnswersSection } from "./sections/AnswersSection"
 import { EducationSection } from "./sections/EducationSection"
 import { EeoSection } from "./sections/EeoSection"
+import { EligibilitySection } from "./sections/EligibilitySection"
 import { PersonalSection } from "./sections/PersonalSection"
 import { PreferencesSection } from "./sections/PreferencesSection"
 import { SkillsSection } from "./sections/SkillsSection"
@@ -24,6 +25,7 @@ const PANES: Record<SectionId, ComponentType<SectionProps>> = {
   work: WorkSection,
   skills: SkillsSection,
   eeo: EeoSection,
+  eligibility: EligibilitySection,
   preferences: PreferencesSection,
   answers: AnswersSection
 }

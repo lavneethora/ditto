@@ -152,6 +152,16 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
     case "eligibility.residentCountry":
       return text(profile.eligibility.residentCountry, "country of residence")
 
+    /**
+     * Accepting the terms of applying, which has one answer.
+     *
+     * Answered from the act of applying rather than from the profile. Ditto
+     * never submits, so the user still sees this ticked and still chooses
+     * whether to send the application.
+     */
+    case "forms.acceptTerms":
+      return { kind: "boolean", value: invert ? false : true }
+
     case "eligibility.citizenships": {
       const held = profile.eligibility.citizenships.filter((c) => c.trim())
       if (held.length === 0) return { kind: "none", reason: "No citizenship saved" }

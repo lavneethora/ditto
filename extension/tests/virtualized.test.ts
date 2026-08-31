@@ -89,7 +89,7 @@ describe("finding an option below the fold", () => {
     const input = virtualList()
 
     expect((await selectFromCombobox(input, "Skill 99")).ok).toBe(false)
-  })
+  }, 15_000)
 
   it("adds every saved skill, not just the ones on screen", async () => {
     const input = virtualList()

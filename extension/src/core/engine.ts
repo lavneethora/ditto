@@ -268,8 +268,17 @@ export async function autofill({
    */
   const identityOf = (field: FieldSpec) => {
     const el = field.el as Element
+    /**
+     * Most stable first, which is not the same as most specific.
+     *
+     * The automation id and the name are chosen by the site and describe what
+     * the field IS. An `id` is often generated, and Workday hands out a fresh
+     * one when it repaints a control. Reading the id first meant the resume
+     * input came back after its upload wearing a new id, looked like a field
+     * nobody had touched, and was uploaded a second time.
+     */
     const published =
-      el.getAttribute("id") || el.getAttribute("data-automation-id") || el.getAttribute("name")
+      el.getAttribute("data-automation-id") || el.getAttribute("name") || el.getAttribute("id")
 
     if (published) return published
 

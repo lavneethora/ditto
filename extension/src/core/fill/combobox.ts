@@ -49,6 +49,16 @@ const SEARCH_WAIT_MS = 2000
 const SEARCH_BUDGET_MS = 2800
 
 /**
+ * How long a stable list is given to turn out to be stale.
+ *
+ * Plenty of lists are complete the moment they appear and never change, and
+ * waiting the full search budget on those costs a second per value for
+ * nothing. But a list that has not moved since typing is also exactly what a
+ * search still in flight looks like, so it gets this long to prove otherwise.
+ */
+const SETTLE_GRACE_MS = 1200
+
+/**
  * The ceiling on one attempt at one value, across every phase.
  *
  * Opening, searching, scrolling a long list and committing each have their
@@ -294,7 +304,8 @@ async function waitForResults(
   budgetMs: number,
   stale: ReadonlySet<Element>
 ): Promise<FieldOption[]> {
-  const deadline = Date.now() + budgetMs
+  const started = Date.now()
+  const deadline = started + budgetMs
   let options: FieldOption[] = []
   let previous: string | null = null
   let atStart: string | null = null
@@ -326,7 +337,9 @@ async function waitForResults(
      * slow search looked settled after three quiet polls and Ditto moved on
      * before the real answer landed.
      */
-    if (options.length > 0 && replaced && unchanged >= 3) return options
+    if (options.length > 0 && unchanged >= 3 && (replaced || Date.now() - started > SETTLE_GRACE_MS)) {
+      return options
+    }
 
     await sleep(OPEN_WAIT_MS)
   }
@@ -608,29 +621,34 @@ export async function selectFromCombobox(
       await typeSequentially(input as HTMLInputElement, query)
       typedQuery = query
 
-      // A short look first, for the boxes that filter as you type. Lever's
-      // location typeahead is one of those and must not be sent an Enter it
-      // did not ask for.
-      options = await waitForResults(doc, input, wanted, Math.min(900, left), stale)
+      // The box's own search first, for the ones that filter as you type.
+      // Lever's location typeahead is one of those and must not be sent an
+      // Enter it did not ask for.
+      options = await waitForResults(doc, input, wanted, Math.min(SEARCH_WAIT_MS, left), stale)
+      choice = pickAmong(options, wanted)
 
       /**
        * Enter to RUN the search, for the boxes that do not filter as you type.
        *
-       * This is the step that was missing, and everything downstream was
-       * built on its absence. Workday's School box shows nothing at all for a
-       * query sitting complete in the input: the list only appears once the
-       * query is submitted, which is exactly what the instructions above the
-       * field describe. Ditto typed, waited for a list that was never coming,
-       * concluded there were no results, and pressed Enter later only as a
-       * way of committing an option it had already failed to find.
+       * Workday's School box shows nothing at all for a query sitting
+       * complete in the input: the list only appears once the query is
+       * submitted, which is what the instructions above the field describe.
+       *
+       * Asked for whenever the answer is not in hand, not only when the list
+       * is empty. An empty list is not the only way to be missing results: a
+       * skills box that has not finished searching still shows the PREVIOUS
+       * skill's results, which are not empty and are not an answer either.
+       * Testing for empty meant Ditto skipped those values with the real
+       * results still on their way.
        */
-      if (options.length === 0) {
+      if (!choice) {
         pressKey(input, "Enter", 13)
         searchRanOnEnter = true
+
         options = await waitForResults(doc, input, wanted, Math.max(0, deadline - Date.now()), stale)
+        choice = pickAmong(options, wanted)
       }
 
-      choice = options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
       if (choice) break
     }
   }
@@ -972,6 +990,11 @@ function queriesFor(wanted: string): string[] {
   if (head && head !== wanted) queries.push(head)
 
   return queries
+}
+
+/** The best option for a value, by the same rules everywhere it is asked. */
+function pickAmong(options: FieldOption[], wanted: string): FieldOption | null {
+  return options.length > 0 ? pickText(options, wanted) ?? exactish(options, wanted) : null
 }
 
 /** Last-resort match for options whose text carries extra decoration. */

@@ -2,7 +2,7 @@ import { resumeToFile } from "~profile/resume"
 
 import type { AttemptOutcome, FieldSpec } from "../types"
 import type { Resolved } from "../resolve"
-import { holdsValue, readComboboxValue, selectFromCombobox } from "./combobox"
+import { dismissMenu, holdsValue, readComboboxValue, selectFromCombobox } from "./combobox"
 import {
   attachFiles,
   dropFiles,
@@ -119,6 +119,10 @@ async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOut
       refused.push(value)
     }
   }
+
+  // Close up after the last value. Nothing else will: the results of whichever
+  // entry went in last otherwise sit open over the rest of the form.
+  dismissMenu(el)
 
   if (added.length === 0) {
     return {
@@ -297,6 +301,7 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
           typeof choice === "boolean" ? (choice ? "Yes" : "No") : String(choice)
 
         const outcome = await selectFromCombobox(field.el as HTMLElement, wanted)
+        dismissMenu(field.el as HTMLElement)
 
         if (!outcome.ok) {
           // This is the "Country: could not open the dropdown" case. Reporting

@@ -287,13 +287,15 @@ function matches(wrote: string, readBack: string): boolean {
 export function verify(
   field: FieldSpec,
   attempt: AttemptOutcome,
-  key?: ProfileKey
+  key?: ProfileKey,
+  via?: string
 ): FillResult {
   const base = {
     fieldId: field.id,
     label: field.label,
     required: field.required,
     key,
+    via,
     /**
      * Relocated, so a row still points somewhere after a re-render replaced
      * the node the scan captured.

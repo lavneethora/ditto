@@ -1006,6 +1006,24 @@ export function dismissMenu(input: HTMLElement): void {
 
   pressKey(target, "Escape", 27)
   target.blur?.()
+
+  /**
+   * A click somewhere else, which is what these menus actually listen for.
+   *
+   * Workday marks its popup `data-behavior-click-outside-close`, and Escape
+   * alone left it open over the rest of the form after the last skill went in.
+   * Dispatched on the document rather than on any control, so it cannot land
+   * on something that acts on it.
+   */
+  if (!findOpenMenu(doc, target)) return
+
+  for (const type of ["pointerdown", "mousedown", "mouseup", "click"] as const) {
+    doc.documentElement.dispatchEvent(
+      type.startsWith("pointer")
+        ? new PointerEvent(type, { bubbles: true, cancelable: true })
+        : new MouseEvent(type, { bubbles: true, cancelable: true })
+    )
+  }
 }
 
 /**

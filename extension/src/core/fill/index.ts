@@ -298,7 +298,7 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
         // A box asking for one part of a date gets that part.
         const piece = resolved.kind === "text" ? datePiece(field.label, resolved.value) : null
         if (piece !== null) {
-          typeInto(field.el as HTMLInputElement | HTMLTextAreaElement, piece)
+          await typeInto(field.el as HTMLInputElement | HTMLTextAreaElement, piece)
           return { kind: "wrote", value: piece }
         }
 
@@ -322,7 +322,7 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
           return await fillDateParts(field.el, resolved.kind === "text" ? resolved.value : value)
         }
 
-        typeInto(field.el as HTMLInputElement | HTMLTextAreaElement, value)
+        await typeInto(field.el as HTMLInputElement | HTMLTextAreaElement, value)
         return { kind: "wrote", value }
       }
 

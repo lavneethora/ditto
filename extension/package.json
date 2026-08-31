@@ -6,15 +6,19 @@
   "author": "Lavneet Hora",
   "scripts": {
     "dev": "plasmo dev",
-    "build": "plasmo build",
+    "build": "plasmo build && node scripts/copy-model.mjs",
     "package": "plasmo package",
     "test": "vitest run",
     "test:watch": "vitest",
     "score": "tsx scripts/score.mts",
     "typecheck": "tsc --noEmit",
-    "harness": "vite"
+    "harness": "vite",
+    "build:vectors": "node scripts/build-vectors.mjs",
+    "copy:model": "node scripts/copy-model.mjs",
+    "fetch:model": "node scripts/fetch-model.mjs"
   },
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@plasmohq/messaging": "^0.7.2",
     "@plasmohq/storage": "^1.15.0",
     "geist": "^1.7.2",
@@ -29,8 +33,12 @@
     "@types/react": "^19.1.6",
     "@types/react-dom": "^19.1.6",
     "jsdom": "^26.1.0",
+    "path-browserify": "^1.0.1",
+    "stream-browserify": "^3.0.0",
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
+    "url": "^0.11.4",
+    "util": "^0.12.5",
     "vite": "^7.3.6",
     "vitest": "^3.2.4"
   },
@@ -40,6 +48,7 @@
   "manifest": {
     "name": "Ditto: Job Application Autofill",
     "permissions": [
+      "offscreen",
       "storage"
     ],
     "host_permissions": [
@@ -48,6 +57,20 @@
       "https://job-boards.greenhouse.io/*",
       "https://jobs.lever.co/*",
       "https://*.ashbyhq.com/*"
+    ],
+    "content_security_policy": {
+      "extension_pages": "script-src 'self' 'wasm-unsafe-eval'; object-src 'self'"
+    },
+    "web_accessible_resources": [
+      {
+        "resources": [
+          "assets/model/*",
+          "assets/offscreen/*"
+        ],
+        "matches": [
+          "<all_urls>"
+        ]
+      }
     ]
   }
 }

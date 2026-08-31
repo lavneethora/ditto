@@ -145,9 +145,44 @@ const DEGREE_ALIASES: ReadonlyArray<readonly [RegExp, string[]]> = [
   [/\b(?:high school|secondary)/, ["High School", "High School Diploma", "Secondary"]]
 ]
 
+/**
+ * Degrees written as their initials, which no word pattern can reach.
+ *
+ * "BS" shares no word with "Bachelor's Degree". Matched on the whole value
+ * rather than as a word inside one, so a school called "BS Abdur Rahman" is
+ * not read as a bachelor's.
+ */
+const DEGREE_INITIALS: ReadonlyMap<string, RegExp> = new Map([
+  ["bs", /\bbachelor/],
+  ["b s", /\bbachelor/],
+  ["ba", /\bbachelor/],
+  ["b a", /\bbachelor/],
+  ["bsc", /\bbachelor/],
+  ["beng", /\bbachelor/],
+  ["btech", /\bbachelor/],
+  ["ms", /\bmaster/],
+  ["m s", /\bmaster/],
+  ["ma", /\bmaster/],
+  ["msc", /\bmaster/],
+  ["meng", /\bmaster/],
+  ["mtech", /\bmaster/],
+  ["mba", /\bmaster/],
+  ["phd", /\bdoctor/],
+  ["ph d", /\bdoctor/],
+  ["aa", /\bassociate/],
+  ["as", /\bassociate/]
+])
+
 /** Degree spellings worth trying when the exact wording is not on offer. */
 function degreeAliases(value: string): string[] {
   const wanted = canonical(value)
+
+  const initials = DEGREE_INITIALS.get(wanted)
+  if (initials) {
+    for (const [pattern, spellings] of DEGREE_ALIASES) {
+      if (pattern.source === initials.source) return spellings
+    }
+  }
 
   for (const [pattern, spellings] of DEGREE_ALIASES) {
     if (pattern.test(wanted)) return spellings

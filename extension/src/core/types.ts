@@ -298,6 +298,19 @@ export interface FillResult {
   value?: string
   /** Why it is not filled, for every other status. */
   reason?: string
+  /**
+   * The control this row is about.
+   *
+   * Carried rather than looked up later. `fieldId` is a per-scan counter, and
+   * a fill re-scans several times as the form reveals questions, so the same
+   * id string means a different field on the second pass than it did on the
+   * first. Clicking "Phone Extension" in the panel scrolled to the postal
+   * code, because that is what was sitting in that slot by then.
+   *
+   * Never serialised: the drawer runs in the page, beside the form it is
+   * describing.
+   */
+  el?: Element
 }
 
 export interface FillReport {

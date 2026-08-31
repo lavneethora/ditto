@@ -669,6 +669,16 @@ export async function selectFromCombobox(
       }
 
       if (choice) break
+
+      /**
+       * A different spelling is only worth trying when the search came back
+       * with nothing at all.
+       *
+       * If it returned results and the answer is not among them, asking again
+       * in another spelling will not change that, and every extra query eats
+       * the budget that the scroll below needs to look further down the list.
+       */
+      if (options.length > 0) break
     }
   }
 
@@ -902,7 +912,7 @@ async function commit(
    * Field of Study and Skills boxes it is the only one that works: the option
    * is visible, the click lands on it, and nothing is selected.
    */
-  if (enterFirst && input instanceof HTMLInputElement) {
+  if (enterFirst && input instanceof HTMLInputElement && !alreadyHolds(current(), choice.label)) {
     input.focus?.()
     pressKey(input, "Enter", 13)
     if (await waitUntil(took, budget(900))) return closeMenu(doc, input, stale, took)
@@ -941,7 +951,16 @@ async function commit(
    * list that was read. Stepping down to it makes the gesture as specific as a
    * click, and it is the gesture these widgets actually honour.
    */
-  if (optionIndex >= 0) {
+  /**
+   * Not if the value already went in.
+   *
+   * Every strategy here exists because the one before it can fail, and each
+   * re-checks first. Enter takes whatever the widget has highlighted, so
+   * running it after a click that had in fact landed adds a SECOND entry:
+   * reported live as MATLAB going in twice, once as "MATLAB" from the click
+   * and once as "MATLAB Programming" from the Enter that followed it.
+   */
+  if (optionIndex >= 0 && !alreadyHolds(current(), choice.label)) {
     input.focus?.()
 
     for (let step = 0; step < optionIndex; step++) {
@@ -1007,6 +1026,23 @@ function queriesFor(wanted: string): string[] {
 
   const head = wanted.split(",")[0]?.trim()
   if (head && head !== wanted) queries.push(head)
+
+  /**
+   * The same words without the punctuation, and then just the first word.
+   *
+   * A search index does not always spell a name the way the user does.
+   * "Next.js" came back with nothing, while the entry Workday holds is
+   * findable from "Nextjs" or "Next". The matcher still decides which result
+   * is right, so a broader query only widens what it gets to choose from.
+   */
+  const plain = wanted.replace(/[^\p{L}\p{N}\s]/gu, "").replace(/\s+/g, " ").trim()
+  if (plain && !queries.includes(plain)) queries.push(plain)
+
+  const squashed = wanted.replace(/[^\p{L}\p{N}]/gu, "")
+  if (squashed && !queries.includes(squashed)) queries.push(squashed)
+
+  const first = plain.split(" ")[0]
+  if (first && first.length > 2 && !queries.includes(first)) queries.push(first)
 
   return queries
 }

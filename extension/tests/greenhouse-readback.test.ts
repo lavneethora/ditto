@@ -105,3 +105,74 @@ describe("two schools that differ by one word", () => {
     )
   })
 })
+
+describe("a react-select whose parts have no names", () => {
+  /**
+   * Emotion builds class names like `css-1hb7zxy` with nothing in them to
+   * match on, so the singleValue lookup finds nothing and the read-back falls
+   * through to the search box, which is empty after a selection.
+   *
+   * That is worse than a wrong report. When the value cannot be read, commit
+   * believes its click failed and moves on to pressing arrow keys and Enter,
+   * which is how a Discipline of "Computer Science" ended up as "Fashion".
+   */
+
+  it("reads the value the field is left showing", () => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="field">
+         <label for="discipline">Discipline*</label>
+         <div class="css-1pahdxg-control">
+           <div class="css-1d8n9bt"><div class="css-qc6sy">Computer Science</div></div>
+           <input id="discipline" role="combobox" value="">
+           <div class="css-1hb7zxy-indicatorContainer"><svg></svg></div>
+         </div>
+       </div>`
+    )
+
+    expect(readComboboxValue(document.getElementById("discipline")!)).toBe("Computer Science")
+  })
+
+  it("reads nothing from a field that has not been chosen", () => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="field">
+         <label for="discipline">Discipline*</label>
+         <div class="css-1pahdxg-control">
+           <div class="css-1wa3eu0-placeholder">Select...</div>
+           <input id="discipline" role="combobox" value="">
+         </div>
+       </div>`
+    )
+
+    expect(readComboboxValue(document.getElementById("discipline")!)).toBe("")
+  })
+
+  it("does not mistake an open results list for the answer", () => {
+    // Lever renders its results as siblings of the box, and reading those as
+    // the value reported a selection nobody made.
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div>
+         <input id="loc" class="location-input" type="text">
+         <div class="dropdown-container">
+           <div class="dropdown-location">Lubbock, TX, USA</div>
+         </div>
+       </div>`
+    )
+
+    expect(readComboboxValue(document.getElementById("loc")!)).toBe("")
+  })
+
+  it("does not read a long description as a value", () => {
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div class="field">
+         <div class="helper">We ask this because we are always aiming to keep our school list inclusive of all institutions, and your answer helps us do that.</div>
+         <input id="q" role="combobox" value="">
+       </div>`
+    )
+
+    expect(readComboboxValue(document.getElementById("q")!)).toBe("")
+  })
+})

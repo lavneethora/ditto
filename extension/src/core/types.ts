@@ -111,6 +111,19 @@ export const PROFILE_KEYS = [
 
   "skills",
 
+  /**
+   * Eligibility, asked several ways that are not the same question.
+   *
+   * Each key is a question a form actually asks, answered by reading the
+   * stored status rather than by inferring one answer from another.
+   */
+  "eligibility.usCitizen",
+  "eligibility.permanentResident",
+  "eligibility.citizenOrResidentOrProtected",
+  "eligibility.atLeast18",
+  "eligibility.residentOutsideUS",
+  "eligibility.residentCountry",
+
   "eeo.authorizedUS",
   "eeo.requiresSponsorship",
   "eeo.disability",

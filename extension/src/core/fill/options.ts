@@ -167,7 +167,15 @@ export function pickText(options: FieldOption[], value: string): FieldOption | n
  * "C++ STL" over "C++ Programming Language", because it took the first option
  * that started with the right characters and stopped looking.
  */
-const QUALIFIERS = new Set(["programming", "language", "languages", "coding"])
+const QUALIFIERS = new Set([
+  "programming",
+  "language",
+  "languages",
+  "coding",
+  // "Docker (Software)" and "Pandas (Software)" are the entries for Docker and
+  // pandas. "Docker Swarm" is a different product that starts the same way.
+  "software"
+])
 
 /**
  * How well one option answers the wanted value. Higher is better, 0 is no.

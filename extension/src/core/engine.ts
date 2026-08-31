@@ -335,7 +335,7 @@ export async function autofill({
  */
 async function reassert(landed: { field: FieldSpec; written: Resolved }[]): Promise<void> {
   const repeatable = landed.filter(({ field }) =>
-    ["text", "textarea", "date", "month", "radiogroup", "checkbox"].includes(field.kind)
+    ["text", "textarea", "date", "month", "radiogroup"].includes(field.kind)
   )
 
   if (repeatable.length === 0) return
@@ -347,6 +347,33 @@ async function reassert(landed: { field: FieldSpec; written: Resolved }[]): Prom
     if (!el) continue
 
     try {
+      /**
+       * A radio is re-announced, never re-clicked.
+       *
+       * Filling asks "is it already chosen?" and does nothing when it is,
+       * which is precisely the case this exists for: the DOM shows the right
+       * option selected while the site's record of it is gone. But clicking
+       * the chosen option again is not safe either. A plain HTML radio would
+       * stay put; these are React controls with their own handlers, and
+       * reported live, a second press clears the selection.
+       *
+       * So the selection is left exactly as it is and the events a handler
+       * listens for are sent again. Nothing to undo if the site was listening
+       * the first time.
+       */
+      if (field.kind === "radiogroup") {
+        const chosen = (field.options ?? [])
+          .map((option) => (option.el ? relocate(option.el) : null))
+          .find((option) => option instanceof HTMLInputElement && option.checked)
+
+        if (chosen) {
+          chosen.dispatchEvent(new Event("input", { bubbles: true }))
+          chosen.dispatchEvent(new Event("change", { bubbles: true }))
+        }
+
+        continue
+      }
+
       await fill({ ...field, el: el as FieldSpec["el"] }, written)
     } catch {
       // A field that has since become unfillable is not worth failing over:

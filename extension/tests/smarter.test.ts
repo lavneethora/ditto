@@ -104,3 +104,52 @@ describe("a list offered to a single choice", () => {
     expect(el.value).toBe("Backend")
   })
 })
+
+describe("an Ashby application, label by label", () => {
+  /**
+   * Every label here is verbatim from a live Ashby posting, read in the
+   * browser. Four of these questions were reported by the form as missing
+   * after a fill, and two others were being answered with something wrong.
+   */
+
+  it("reads Full Legal Name as a name", () => {
+    // The commonest phrasing on an application, and the anchored pattern did
+    // not allow for two words in front of "name".
+    expect(keyFor("Full Legal Name")).toBe("personal.fullName")
+  })
+
+  it("reads the work authorisation question", () => {
+    expect(keyFor("Are you currently authorized to work in the US?")).toBe("eeo.authorizedUS")
+  })
+
+  it("does not answer how long that authorisation lasts", () => {
+    // A duration question, answered "Yes" from the stored fact that you are
+    // authorised: a real and completely wrong answer in a required field.
+    expect(keyFor("Approximately how long is your current work authorization valid?")).toBeNull()
+  })
+
+  it("does not read a sentence about the company as the employer field", () => {
+    expect(
+      keyFor(
+        "We are a flexible remote-first company, but we do require employees to be in a hub"
+      )
+    ).toBeNull()
+  })
+
+  it("reads graduation month and year as the education end date", () => {
+    expect(keyFor("Please select your graduation month")).toBe("education[].endDate")
+    expect(keyFor("Please select your graduation year")).toBe("education[].endDate")
+  })
+
+  it("reads the university question as the school", () => {
+    expect(keyFor("Please select your current or most recent university.")).toBe(
+      "education[].school"
+    )
+  })
+
+  it("reads where you are located as your own location", () => {
+    expect(keyFor("Please list the city and state/province that you are located in")).toBe(
+      "personal.location"
+    )
+  })
+})

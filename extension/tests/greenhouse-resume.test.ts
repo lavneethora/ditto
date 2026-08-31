@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest"
 
 import { scan } from "~core/scan"
 import type { FieldSpec } from "~core/types"
-import { verify } from "~core/verify"
+import { settleFile, verify } from "~core/verify"
 
 /**
  * The resume that reported itself missing.
@@ -104,6 +104,49 @@ describe("a resume Greenhouse has taken", () => {
   it("still reports a genuinely empty uploader as unfilled", () => {
     const { resume } = fileFields()
 
+    expect(verify(resume, attempt).status).not.toBe("filled")
+  })
+})
+
+describe("the gap between the input going and the chip arriving", () => {
+  beforeEach(() => {
+    document.body.innerHTML = FORM
+  })
+
+  /**
+   * Sampled on the live form after the change event:
+   *
+   *   the instant change returns   input gone, block reads "Resume/CV*"
+   *   +320ms                       block reads "Resume/CV* <filename>"
+   *
+   * Verification ran in that gap and called the resume refused.
+   */
+  it("is not judged before the page has answered", async () => {
+    const { resume } = fileFields()
+
+    // The synchronous half: the input is torn out and nothing replaces it.
+    document.querySelectorAll(".file-upload__wrapper")[0]!.innerHTML = ""
+    expect(document.getElementById("resume")).toBeNull()
+
+    // Reading now, as it used to, finds nothing and would cross it out.
+    expect(verify(resume, attempt).status).not.toBe("filled")
+
+    // The chip lands a beat later, exactly as measured.
+    setTimeout(() => commitFile(0), 300)
+
+    await settleFile(resume, 3000)
+
+    expect(verify(resume, attempt).status).toBe("filled")
+  })
+
+  it("gives up rather than hanging when nothing ever arrives", async () => {
+    const { resume } = fileFields()
+    document.querySelectorAll(".file-upload__wrapper")[0]!.innerHTML = ""
+
+    const started = Date.now()
+    await settleFile(resume, 400)
+
+    expect(Date.now() - started).toBeLessThan(2000)
     expect(verify(resume, attempt).status).not.toBe("filled")
   })
 })

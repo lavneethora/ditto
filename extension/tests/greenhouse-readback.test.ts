@@ -176,3 +176,26 @@ describe("a react-select whose parts have no names", () => {
     expect(readComboboxValue(document.getElementById("q")!)).toBe("")
   })
 })
+
+describe("a dialling code", () => {
+  const options = (...labels: string[]) => labels.map((label) => ({ label, value: label }))
+
+  it("finds the country carrying it", () => {
+    // "+1" is one short token in a three word option, so the ordinary overlap
+    // test rejected it for not accounting for enough of the option, and the
+    // phone country field went unanswered.
+    expect(pickText(options("United Kingdom +44", "United States +1"), "+1")?.label).toBe(
+      "United States +1"
+    )
+  })
+
+  it("does not take a different code", () => {
+    expect(pickText(options("Australia +61", "Norfolk Island +672"), "+1")).toBeNull()
+  })
+
+  it("does not loosen matching for ordinary one-word values", () => {
+    // The rule is for codes only: a name still has to account for most of the
+    // option it matches.
+    expect(pickText(options("Documentum Java"), "Java")).toBeNull()
+  })
+})

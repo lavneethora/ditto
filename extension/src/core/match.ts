@@ -601,7 +601,13 @@ const DISQUALIFIERS: Partial<Record<ProfileKey, RegExp>> = {
    * duration. Answering it yes, from the stored fact that you are authorised,
    * writes a real and completely wrong answer into a required field.
    */
-  "eeo.authorizedUS": /\bhow\s+long\b|\bvalid\s+(?:for|until|through)\b|\bexpir(?:e|es|ation|y)\b|\bduration\b/
+  "eeo.authorizedUS": /\bhow\s+long\b|\bvalid\s+(?:for|until|through)\b|\bexpir(?:e|es|ation|y)\b|\bduration\b/,
+  /**
+   * "What is your first location preference?" asks where you would LIKE to
+   * work, out of the employer's offices. It is not a place you have lived,
+   * and it was being answered with the city of a past job.
+   */
+  "work[].location": /\bpreference\b|\bpreferred\b|\brank\b/
 }
 
 /**
@@ -618,6 +624,18 @@ function applySection(key: ProfileKey, section: SectionKind): ProfileKey {
   // leaves the real address country empty.
   if (section === "phone" && (key === "personal.country" || key === "personal.state")) {
     return "personal.phoneCountryCode"
+  }
+
+  /**
+   * A location field outside a job block is the applicant's own.
+   *
+   * "Location" is the same word whether it heads a past job or asks where the
+   * person lives, and only the block it sits in tells them apart. Greenhouse
+   * puts "Location (City)" at the top of the form, next to the name and email,
+   * and it was being answered with the city of a previous employer.
+   */
+  if (key === "work[].location" && section !== "work" && section !== "education") {
+    return "personal.location"
   }
 
   if (section === "work" && key.startsWith("education[].")) {

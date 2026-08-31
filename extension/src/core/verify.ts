@@ -124,29 +124,56 @@ const UPLOADER =
  *  - The input is empty and the name is printed beside it. Workday's dropzone
  *    reads the file, uploads it, and clears the control it came from.
  *  - The input is GONE. Measured on the live Greenhouse form: attaching a
- *    resume replaces the whole Attach/Dropbox block with a chip carrying the
- *    filename, and `getElementById("resume")` returns null a moment later.
+ *    resume replaces the whole Attach block with a chip carrying the filename,
+ *    and `getElementById("resume")` returns null a moment later.
  *
  * The third is why this runs ahead of the missing-element check in readBack.
  * That check exists because a control that vanished cannot be confirmed, which
  * is true of every kind except this one, where vanishing is the confirmation.
  * Without this the user attaches a resume, sees it named on the page, and gets
  * a red cross telling them it did not take.
+ *
+ * The block comes from the scan, not from a search. Looking for it by label
+ * does not work here: the only label pointing at Greenhouse's resume input
+ * reads "Attach", and that word disappears along with the button.
  */
 function readAttachedFile(field: FieldSpec, el: Element | null): string | null {
   if (el instanceof HTMLInputElement && el.files?.[0]) return el.files[0].name
 
-  const scope = el?.isConnected ? el.closest(UPLOADER) : uploaderShowing(field)
-  const named = scope?.textContent?.match(FILENAME)
+  for (const scope of scopesFor(field, el)) {
+    const named = scope.textContent?.match(FILENAME)
+    if (named) return named[0]
+  }
 
-  return named ? named[0] : null
+  return null
 }
 
 /**
- * Find this field's uploader again by what it says rather than what it is.
+ * Every place this field's file could be showing, best handle first.
  *
- * Scoped to the block naming the question, and required to be showing a file,
- * so a page with three uploaders cannot answer for the resume with the cover
+ * Three handles rather than one because each fails differently and none of
+ * them fails quietly: the element is gone on Greenhouse, the container is
+ * missing on a form the scan reached another way, and the label search is
+ * wrong on a page that repeats a question. Trying all three costs one pass
+ * over a handful of nodes and removes a whole class of false red cross.
+ */
+function* scopesFor(field: FieldSpec, el: Element | null): Generator<Element> {
+  if (el?.isConnected) {
+    const nearest = el.closest(UPLOADER)
+    if (nearest) yield nearest
+  }
+
+  if (field.container?.isConnected) yield field.container
+
+  const byLabel = uploaderShowing(field)
+  if (byLabel) yield byLabel
+}
+
+/**
+ * Last resort: find the uploader by the question it is under.
+ *
+ * Scoped to a block that both names the question and is showing a file, so a
+ * page with three uploaders cannot answer for the resume with the cover
  * letter's filename. Narrowest match wins, since the containers nest.
  */
 function uploaderShowing(field: FieldSpec): Element | null {

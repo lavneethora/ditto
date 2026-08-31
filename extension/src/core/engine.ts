@@ -61,39 +61,35 @@ function yieldToBrowser(): Promise<void> {
 }
 
 /**
- * Wait for the form to stop moving before looking at it again.
+ * Watches the form for questions appearing while it is being filled.
  *
- * Answering a question can reveal another one, and the new field does not
+ * Answering one question can reveal another, and the revealed field does not
  * exist the instant the answer lands. Workday chains its export control
  * questions this way: answering "are you a citizen of Cuba, Iran, North Korea
- * or Syria" reveals a second list, and that one arrives on its own schedule.
+ * or Syria" reveals a longer country list, and that arrives on its own
+ * schedule.
  *
- * Re-scanning immediately looked at the page in the gap and found nothing, so
- * the revealed question was never filled and never even reported. Waiting a
- * fixed time would be a guess in both directions: too short for a slow reveal,
- * wasted on a form that has nothing to add.
+ * Watching from the START of a pass rather than asking afterwards is what
+ * keeps this cheap. A form with no follow-ups adds no nodes, which is known
+ * without waiting to find out, so the common case pays a short grace period
+ * once and nothing more. Sleeping a fixed time after every pass instead put
+ * seconds onto every run to learn what the form had already said.
  */
-function awaitFormSettled(doc: Document, quietMs = 400, budgetMs = 2500): Promise<void> {
-  return new Promise((done) => {
-    let quiet: ReturnType<typeof setTimeout>
+function watchForReveals(doc: Document): { grew: () => boolean; stop: () => void } {
+  let grew = false
 
-    const finish = () => {
-      clearTimeout(quiet)
-      clearTimeout(cap)
-      observer.disconnect()
-      done()
+  const observer = new MutationObserver((records) => {
+    for (const record of records) {
+      if (record.addedNodes.length > 0) {
+        grew = true
+        return
+      }
     }
-
-    const observer = new MutationObserver(() => {
-      clearTimeout(quiet)
-      quiet = setTimeout(finish, quietMs)
-    })
-
-    const cap = setTimeout(finish, budgetMs)
-    quiet = setTimeout(finish, quietMs)
-
-    observer.observe(doc.body, { childList: true, subtree: true, attributes: true })
   })
+
+  observer.observe(doc.body, { childList: true, subtree: true })
+
+  return { grew: () => grew, stop: () => observer.disconnect() }
 }
 
 /**
@@ -125,6 +121,9 @@ const SETTLE_BEFORE_REASSERT_MS = 1200
  */
 const MAX_PASSES = 8
 const REVEAL_BUDGET_MS = 25_000
+
+/** How long a revealed question has to appear after the answer that caused it. */
+const REVEAL_GRACE_MS = 600
 
 /** An entry the user has actually filled in, rather than an empty row. */
 function hasContent(entry: Record<string, unknown>): boolean {
@@ -338,6 +337,9 @@ export async function autofill({
    * is left is reported as needing the user.
    */
   for (let pass = 0; pass < MAX_PASSES && queue.length > 0; pass++) {
+    let wroteThisPass = false
+    const reveals = watchForReveals(doc)
+
     for (const field of queue) {
       if (shouldCancel?.()) break
 
@@ -380,7 +382,10 @@ export async function autofill({
       const result = verify(field, attempt, matched?.key)
 
       // Kept so the value can be reasserted once the form has settled.
-      if (attempt.kind === "wrote") landed.push({ field, written })
+      if (attempt.kind === "wrote") {
+        landed.push({ field, written })
+        wroteThisPass = true
+      }
 
       results.push(result)
       onProgress?.(results.length, total, result)
@@ -392,12 +397,33 @@ export async function autofill({
 
     if (shouldCancel?.()) break
 
+    /**
+     * Nothing written, so nothing can have been revealed.
+     *
+     * A follow-up question exists because an answer brought it into being. A
+     * pass that wrote nothing cannot have caused one, so waiting for the form
+     * to settle and scanning it again is time spent to learn what is already
+     * known. Without this every run paid the settle wait on a final pass that
+     * could only ever come back empty.
+     */
+    if (!wroteThisPass) {
+      reveals.stop()
+      break
+    }
+
+    // A question revealed by the last answer of the pass has not appeared
+    // yet. Short, because anything slower than this is a page load.
+    await new Promise((done) => setTimeout(done, REVEAL_GRACE_MS))
+
+    const grew = reveals.grew()
+    reveals.stop()
+
+    // The form added nothing, so there is nothing new to find.
+    if (!grew) break
+
     // Long enough to have been generous. A form still revealing questions
     // this far in is rewriting itself rather than asking follow-ups.
     if (Date.now() - startedAt > REVEAL_BUDGET_MS) break
-
-    // A question revealed by the answer above needs a beat to appear.
-    await awaitFormSettled(doc)
 
     queue = filesLast(scan(doc, adapter).filter((field) => !alreadyDone(field)))
     total += queue.length

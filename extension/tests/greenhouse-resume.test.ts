@@ -134,7 +134,7 @@ describe("the gap between the input going and the chip arriving", () => {
     // The chip lands a beat later, exactly as measured.
     setTimeout(() => commitFile(0), 300)
 
-    await settleFile(resume, 3000)
+    await settleFile(resume, attempt.value, 3000)
 
     expect(verify(resume, attempt).status).toBe("filled")
   })
@@ -144,9 +144,48 @@ describe("the gap between the input going and the chip arriving", () => {
     document.querySelectorAll(".file-upload__wrapper")[0]!.innerHTML = ""
 
     const started = Date.now()
-    await settleFile(resume, 400)
+    await settleFile(resume, attempt.value, 400)
 
     expect(Date.now() - started).toBeLessThan(2000)
     expect(verify(resume, attempt).status).not.toBe("filled")
+  })
+})
+
+describe("a resume whose name is not a tidy filename", () => {
+  beforeEach(() => {
+    document.body.innerHTML = FORM
+  })
+
+  /**
+   * Measured live: attaching a file named "Lavneet Hora Resume", with spaces
+   * and no extension, and reading back with the filename PATTERN found
+   * nothing at all. The pattern only ever worked by guessing the extension
+   * right. Looking for the file that was actually sent does not have to
+   * guess.
+   */
+  it("is confirmed by the name that was sent, not by a pattern", async () => {
+    const { resume } = fileFields()
+    const plain = { kind: "wrote", value: "Lavneet Hora Resume" } as const
+
+    document.querySelectorAll(".file-upload__wrapper")[0]!.innerHTML = ""
+    setTimeout(() => {
+      document.querySelectorAll(".file-upload__wrapper")[0]!.innerHTML =
+        `<div class="file-upload__filename"><p>Lavneet Hora Resume</p></div>`
+    }, 200)
+
+    await settleFile(resume, plain.value, 3000)
+
+    expect(verify(resume, plain).status).toBe("filled")
+  })
+
+  it("says what it could see when it finds nothing", () => {
+    const { resume } = fileFields()
+
+    const result = verify(resume, attempt)
+
+    // Opaque failures cost a round trip with the user every time.
+    expect(result.status).toBe("error")
+    expect(result.reason).toContain("Lavneet_Hora_Resume.pdf")
+    expect(result.reason).toMatch(/uploader shows/)
   })
 })

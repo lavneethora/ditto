@@ -320,6 +320,36 @@ export function verify(
         }
       }
 
+      /**
+       * A multi-select is checked item by item, not as one string.
+       *
+       * Ditto writes "Python, Java, Docker (Software)" and the control shows
+       * the same three as pills, in whatever order it likes, alongside
+       * anything that was already there. Neither string contains the other, so
+       * a plain comparison called a correct answer wrong: the panel listed
+       * every skill it had written and put a red cross beside them.
+       *
+       * Every value written has to be present. Extra values are not a failure,
+       * since the user may have chosen some themselves.
+       */
+      if (field.kind === "multiselect") {
+        const shown = canonical(actual)
+        const missing = attempt.value
+          .split(",")
+          .map((piece) => canonical(piece))
+          .filter((piece) => piece && !shown.includes(piece))
+
+        if (missing.length > 0) {
+          return {
+            ...base,
+            status: "error",
+            reason: `Wrote ${attempt.value} but the field does not show ${missing.join(", ")}`
+          }
+        }
+
+        return { ...base, status: "filled", value: actual }
+      }
+
       if (!matches(attempt.value, actual)) {
         return {
           ...base,

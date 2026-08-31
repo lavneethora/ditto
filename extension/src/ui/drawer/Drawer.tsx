@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { Adapter, FieldSpec, FillReport, FillResult } from "~core/types"
 import { analyze, autofill } from "~core/engine"
-import { canonical } from "~core/label"
 import { actionableItems, summaryLine } from "~core/report"
 import { describeResume } from "~profile/resume"
 import { Wordmark } from "~ui/Logo"
@@ -162,7 +161,7 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
     async (result: FillResult, key: string) => {
       if (!result.label) return
 
-      await teach(canonical(result.label), key, doc.location?.host ?? "")
+      await teach(result.label, key, doc.location?.host ?? "")
       void start()
     },
     [doc, start, teach]

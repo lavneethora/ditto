@@ -117,6 +117,29 @@ export type Work = z.infer<typeof WorkSchema>
  * require sponsorship later, and answering as though one implies the other
  * puts a false statement on a job application. See PRD section 5.2.
  */
+/**
+ * Where a person stands on working legally, as a fact rather than as an answer.
+ *
+ * Forms ask this several ways and they are NOT the same question. "Are you a
+ * US citizen?" and "Are you a citizen, permanent resident, or protected
+ * person?" have different correct answers, so a stored yes to one cannot
+ * answer the other. Storing the status answers both by reading it, never by
+ * inferring across them.
+ *
+ * Separate from Equal Employment on purpose. Those are demographics a person
+ * may decline to give; these are eligibility facts, and a wrong one is a false
+ * statement on a legal document. See PRD 5.2.
+ */
+export const WorkStatus = z.enum(["citizen", "permanentResident", "protected", "none"])
+export type WorkStatus = z.infer<typeof WorkStatus>
+
+export const EligibilitySchema = z.object({
+  status: WorkStatus.nullable().default(null),
+  atLeast18: z.boolean().nullable().default(null),
+  residentOutsideUS: z.boolean().nullable().default(null),
+  residentCountry: z.string().default("")
+})
+
 export const EeoSchema = z.object({
   authorizedUS: z.boolean().nullable().default(null),
   requiresSponsorship: z.boolean().nullable().default(null),
@@ -207,6 +230,7 @@ export const ProfileSchema = z.object({
   work: z.array(WorkSchema).default([]),
   skills: z.array(z.string()).default([]),
   eeo: EeoSchema.default({}),
+  eligibility: EligibilitySchema.default({}),
   preferences: PreferencesSchema.default({}),
   answers: z.array(AnswerSchema).default([]),
   resume: ResumeSchema.nullable().default(null),
@@ -221,6 +245,7 @@ export const SECTIONS = [
   "work",
   "skills",
   "eeo",
+  "eligibility",
   "preferences",
   "answers"
 ] as const
@@ -232,6 +257,7 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   work: "Work Experience",
   skills: "Skill",
   eeo: "Equal Employment",
+  eligibility: "Eligibility",
   preferences: "Preferences",
   answers: "Answers"
 }
@@ -278,6 +304,11 @@ export function isSectionComplete(profile: Profile, section: SectionId): boolean
       const e = profile.eeo
       return e.authorizedUS !== null && e.requiresSponsorship !== null
     }
+    case "eligibility": {
+      const e = profile.eligibility
+      return e.status !== null && e.atLeast18 !== null
+    }
+
     case "preferences":
       // Optional like Answers: an application is fillable without any of it.
       return true

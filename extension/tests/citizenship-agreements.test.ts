@@ -149,3 +149,102 @@ describe("which passport, asked plainly", () => {
     })
   })
 })
+
+/**
+ * Workday's export control screening, which arrives one question at a time.
+ *
+ * Confirmed on a live application: answering the first reveals a second, and
+ * answering that reveals a third. Each is a separate field that does not exist
+ * until the one before it is answered.
+ */
+describe("the chain of screening questions", () => {
+  const FIRST =
+    "Are you a citizen of any one of these countries: Cuba, Iran, North Korea, or Syria?"
+
+  const SECOND =
+    "Are you a citizen of any of the following countries: Group D (Armenia, Azerbaijan, Belarus, Burma (Myanmar), Cambodia, China (PRC), Georgia, Hong Kong, Iraq, Kazakhstan, Kyrgyzstan, Laos, Libya, Macau, Moldova, Mongolia, Nicaragua, Russia, Tajikistan, Turkmenistan, Ukraine (RU Occupied regions, Donetsk, Kherson, Luhansk, Zaporizhzhia), Uzbekistan, Venezuela, Vietnam)"
+
+  const THIRD = "Please add your Country of Citizenship or Countries of Citizenship if dual"
+
+  it("answers the long list the same way as the short one", () => {
+    expect(answerTo(SECOND, { citizenships: ["India"] })).toEqual({
+      key: "eligibility.citizenOfNamedCountries",
+      resolved: { kind: "boolean", value: false }
+    })
+  })
+
+  it("says yes when a passport is on the long list", () => {
+    expect(answerTo(SECOND, { citizenships: ["Russia"] }).resolved).toEqual({
+      kind: "boolean",
+      value: true
+    })
+  })
+
+  it("does not read the third question as another screening list", () => {
+    // It asks WHICH, not WHETHER. Answering it with a yes or no would put a
+    // boolean into a country field.
+    expect(answerTo(THIRD, { citizenships: ["India"] }, "multiselect").key).toBe(
+      "eligibility.citizenships"
+    )
+  })
+
+  it("gives the multi-select every passport", () => {
+    expect(answerTo(THIRD, { citizenships: ["India", "Canada"] }, "multiselect").resolved).toEqual({
+      kind: "list",
+      value: ["India", "Canada"]
+    })
+  })
+
+  it("keeps the three questions on three different keys", () => {
+    const held = { citizenships: ["India"] }
+    const keys = [FIRST, SECOND, THIRD].map((q) => answerTo(q, held, "multiselect").key)
+
+    expect(keys).toEqual([
+      "eligibility.citizenOfNamedCountries",
+      "eligibility.citizenOfNamedCountries",
+      "eligibility.citizenships"
+    ])
+  })
+})
+
+describe("the country someone is a permanent resident of", () => {
+  it("is not their mailing address", () => {
+    // Living in Texas with permanent residency in India got "United States of
+    // America" onto an export control form, because nothing routed to the key
+    // that knew the answer.
+    const { key, resolved } = answerTo(
+      "Please add your Country of Permanent Residency",
+      { residentOutsideUS: true, residentCountry: "India" },
+      "combobox"
+    )
+
+    expect(key).toBe("eligibility.residentCountry")
+    expect(resolved).toEqual({ kind: "text", value: "India" })
+  })
+
+  it("leaves a plain country of residence as the address country", () => {
+    // That one usually does mean where you live now.
+    expect(answerTo("Country of Residence", {}, "combobox").key).toBe("personal.country")
+    expect(answerTo("Country", {}, "combobox").key).toBe("personal.country")
+  })
+})
+
+describe("the third question is a text box, not a picker", () => {
+  const THIRD = "Please add your Country of Citizenship or Countries of Citizenship if dual"
+
+  it("writes one country plainly", () => {
+    expect(answerTo(THIRD, { citizenships: ["India"] }, "text").resolved).toEqual({
+      kind: "text",
+      value: "India"
+    })
+  })
+
+  it("writes both when the box invites both", () => {
+    // The label asks for countries plural if dual, so a text box gets the lot
+    // rather than the first one.
+    expect(answerTo(THIRD, { citizenships: ["India", "Canada"] }, "text").resolved).toEqual({
+      kind: "text",
+      value: "India, Canada"
+    })
+  })
+})

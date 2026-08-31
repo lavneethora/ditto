@@ -280,7 +280,20 @@ export interface MatchRule {
 
 /** What a fill function is allowed to report. Note the absence of `filled`. */
 export type AttemptOutcome =
-  | { kind: "wrote"; value: string }
+  | {
+      kind: "wrote"
+      value: string
+      /**
+       * Something worth saying about a write that still succeeded.
+       *
+       * A multi-select adds what it can find and used to drop the rest in
+       * silence, so a run that placed thirteen skills and could not place four
+       * looked exactly like one that placed all seventeen. The user could see
+       * the count was short and had no way to learn which four, and neither
+       * did anyone trying to fix it.
+       */
+      note?: string
+    }
   | { kind: "skipped"; reason: string }
   | { kind: "needs_you"; reason: string }
   | { kind: "error"; reason: string }

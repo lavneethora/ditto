@@ -143,3 +143,25 @@ describe("software as a qualifier", () => {
     )
   })
 })
+
+describe("ending in the same word is not the same thing", () => {
+  it("never answers Java with Documentum Java", () => {
+    // Parentheses are what make "(SQL)" an abbreviation rather than a
+    // coincidence, and canonicalising drops them. Without reading the raw
+    // text, a document management product ended in "Java" exactly as much as
+    // "Structured Query Language (SQL)" ends in SQL.
+    const list = options("Documentum Java", "Java (Programming Language)")
+
+    expect(pickText(list, "Java")?.label).toBe("Java (Programming Language)")
+  })
+
+  it("refuses it outright when the real entry is absent", () => {
+    expect(pickText(options("Documentum Java"), "Java")).toBeNull()
+  })
+
+  it("still reads a genuine abbreviation", () => {
+    expect(pickText(options("Structured Query Language (SQL)"), "SQL")?.label).toBe(
+      "Structured Query Language (SQL)"
+    )
+  })
+})

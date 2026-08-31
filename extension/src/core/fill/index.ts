@@ -113,11 +113,16 @@ async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOut
      * control what it holds is both simpler and the same standard the report
      * is held to.
      */
-    if (outcome.ok || holdsValue(readComboboxValue(el), value)) {
-      added.push(outcome.value ?? value)
-    } else {
-      refused.push(value)
-    }
+    /**
+     * Judged only by what the control holds.
+     *
+     * Not by whether the attempt believed it worked. FastAPI was listed as
+     * written while the box plainly did not contain it, which is the report
+     * telling the user something they can see is untrue. The control is the
+     * only authority on its own contents.
+     */
+    if (holdsValue(readComboboxValue(el), value)) added.push(value)
+    else refused.push(value)
   }
 
   // Close up after the last value. Nothing else will: the results of whichever

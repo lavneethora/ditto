@@ -280,7 +280,22 @@ const RULES: MatchRule[] = [
   { key: "personal.lastName", test: /\blast\s+name\b|\bsurname\b|\bfamily\s+name\b/, weight: 90 },
   { key: "personal.middleName", test: /\bmiddle\s+(?:name|initial)\b/, weight: 90 },
   // Bare "name" only, so it cannot steal "first name". Lever uses this.
-  { key: "personal.fullName", test: /^(?:full\s+|legal\s+|your\s+)?name$/, weight: 70 },
+  // "Full Legal Name" is the commonest phrasing on an application and the
+  // anchored pattern below did not allow for two words in front of it.
+  /**
+   * Graduation, asked one part at a time.
+   *
+   * Both are the education end date; which part to write is decided by the
+   * label when the value is filled, the same way "Start date year" is.
+   */
+  {
+    key: "education[].endDate",
+    test: /\bgraduat(?:ion|ing|e)\b[^?]{0,24}\b(?:month|year|date)\b|\b(?:month|year|date)\b[^?]{0,24}\bgraduat/,
+    weight: 100,
+    allowOnQuestion: true
+  },
+
+  { key: "personal.fullName", test: /^(?:full\s+|legal\s+|your\s+|preferred\s+){0,3}name$/, weight: 70 },
 
   // --- Contact --------------------------------------------------------------
 
@@ -359,7 +374,15 @@ const RULES: MatchRule[] = [
 
   // --- Work -----------------------------------------------------------------
 
-  { key: "work[].company", test: /\bcompany\b|\bemployer\b|\borganization\b|\borganisation\b/, weight: 90 },
+  // Near the front, like the other rules whose keyword is an ordinary word.
+  // "We are a flexible remote-first company, but we do require employees to
+  // be in a hub" is a policy, not an employer name.
+  {
+    key: "work[].company",
+    test: /\bcompany\b|\bemployer\b|\borganization\b|\borganisation\b/,
+    weight: 90,
+    nearStart: 28
+  },
   {
     key: "work[].current",
     test: /\bi\s+currently\s+work\s+here\b|\bcurrently\s+(?:work|employed)\s+(?:here|at)\b/,
@@ -572,7 +595,13 @@ export function match(
  * "matched a key whose value does not belong in this box at any confidence".
  */
 const DISQUALIFIERS: Partial<Record<ProfileKey, RegExp>> = {
-  "personal.phone": /\bext(?:ension)?\b/
+  "personal.phone": /\bext(?:ension)?\b/,
+  /**
+   * "Approximately how long is your current work authorization valid?" asks a
+   * duration. Answering it yes, from the stored fact that you are authorised,
+   * writes a real and completely wrong answer into a required field.
+   */
+  "eeo.authorizedUS": /\bhow\s+long\b|\bvalid\s+(?:for|until|through)\b|\bexpir(?:e|es|ation|y)\b|\bduration\b/
 }
 
 /**

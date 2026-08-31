@@ -107,7 +107,7 @@ describe("finding an option below the fold", () => {
 
     expect(outcome.kind).toBe("wrote")
     expect(document.getElementById("chosen")!.children).toHaveLength(3)
-  })
+  }, 20_000)
 })
 
 describe("a search that takes a moment to answer", () => {

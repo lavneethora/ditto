@@ -478,9 +478,33 @@ const DATE_RULES: Record<"education" | "work" | "default", MatchRule[]> = {
     { key: "work[].startDate", test: /\bstart\b|\bfrom\b/, weight: 80 },
     { key: "work[].endDate", test: /\bend\b|\bto\b|\bthrough\b/, weight: 80 }
   ],
-  // With the Preference section gone there is no stored availability date, so
-  // a bare "when can you start" question has no key and lands in NEEDS YOU.
-  default: []
+  /**
+   * Dated fields whose block Ditto could not name.
+   *
+   * Greenhouse labels an education row's field "Start date year" and does not
+   * mark the block as education in any way the section resolver can see, so
+   * it matched nothing at all and a year the profile holds went unwritten.
+   *
+   * Written as education keys because applySection rewrites them to the work
+   * ones inside a job block, which is how the same labels are handled
+   * everywhere else.
+   *
+   * "date", "year" or "month" has to follow, and neither rule opts in on
+   * questions. That is what keeps "When can you start?" out: it is a question,
+   * there is no stored availability date, and it belongs in NEEDS YOU.
+   */
+  default: [
+    {
+      key: "education[].startDate",
+      test: /\bstart(?:ed|ing)?\s+(?:date|year|month)\b|\bfrom\s+(?:date|year|month)\b/,
+      weight: 70
+    },
+    {
+      key: "education[].endDate",
+      test: /\b(?:end|graduation|completion|finish)\s+(?:date|year|month)\b|\bto\s+(?:date|year|month)\b/,
+      weight: 70
+    }
+  ]
 }
 
 /**

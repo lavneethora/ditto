@@ -183,6 +183,26 @@ const SECTION_NAMES: Record<string, string> = {
   forms: "This Form"
 }
 
+/**
+ * Words that are not capitalised by uppercasing the first letter.
+ *
+ * A picker offering "Linkedin" and "Authorized Us" reads as a bug, and the
+ * mechanical rule cannot know which words are names and which are acronyms.
+ */
+const ACRONYMS: Record<string, string> = {
+  us: "US",
+  eeo: "EEO",
+  url: "URL",
+  id: "ID",
+  linkedin: "LinkedIn",
+  github: "GitHub",
+  gpa: "GPA",
+  lgbtq: "LGBTQ+"
+}
+
+/** Joining words, which stay lowercase unless they lead. */
+const MINOR = new Set(["of", "or", "by", "to", "and", "the", "a", "in", "at", "for"])
+
 export function keyLabel(key: string): string {
   const [head, tail] = key.split(".")
   if (!tail) return head.replace(/^./, (c) => c.toUpperCase())
@@ -191,9 +211,19 @@ export function keyLabel(key: string): string {
   const repeated = head.endsWith("[]")
 
   const field = tail
+    // Between a word and a capital, and between a word and a number:
+    // "addressLine1" is three words, not "Address Line1".
     .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
-    .replace(/^./, (c) => c.toUpperCase())
-    .replace(/\bUs\b/g, "US")
+    .replace(/([a-zA-Z])(\d)/g, "$1 $2")
+    .split(" ")
+    .map((word, index) => {
+      const lower = word.toLowerCase()
+      if (ACRONYMS[lower]) return ACRONYMS[lower]
+      if (index > 0 && MINOR.has(lower)) return lower
+
+      return word.replace(/^./, (c) => c.toUpperCase())
+    })
+    .join(" ")
 
   return `${section}${repeated ? " (each entry)" : ""} · ${field}`
 }

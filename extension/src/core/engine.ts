@@ -78,7 +78,7 @@ const PANEL_WAIT_MS = 1200
  * Long enough for the re-render that follows the last write, including the
  * one a file attachment sets off.
  */
-const SETTLE_BEFORE_REASSERT_MS = 700
+const SETTLE_BEFORE_REASSERT_MS = 1200
 
 /** An entry the user has actually filled in, rather than an empty row. */
 function hasContent(entry: Record<string, unknown>): boolean {
@@ -335,7 +335,7 @@ export async function autofill({
  */
 async function reassert(landed: { field: FieldSpec; written: Resolved }[]): Promise<void> {
   const repeatable = landed.filter(({ field }) =>
-    ["text", "textarea", "date", "month", "radiogroup"].includes(field.kind)
+    ["text", "textarea", "date", "month", "radiogroup", "combobox", "select"].includes(field.kind)
   )
 
   if (repeatable.length === 0) return
@@ -371,6 +371,20 @@ async function reassert(landed: { field: FieldSpec; written: Resolved }[]): Prom
           chosen.dispatchEvent(new Event("change", { bubbles: true }))
         }
 
+        continue
+      }
+
+      /**
+       * A dropdown is re-announced too, never re-chosen.
+       *
+       * Choosing again is slow and, on a control that takes several values,
+       * would add a second copy. But a dropdown can lose its answer the same
+       * way a text box can, so the events go out again over whatever it is
+       * already showing.
+       */
+      if (field.kind === "combobox" || field.kind === "select") {
+        el.dispatchEvent(new Event("input", { bubbles: true }))
+        el.dispatchEvent(new Event("change", { bubbles: true }))
         continue
       }
 

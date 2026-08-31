@@ -130,6 +130,33 @@ function withSubdivisionAliases(value: string): string[] {
 }
 
 /**
+ * The shorter ways a degree is listed.
+ *
+ * A profile says "Bachelor of Science" because that is what the certificate
+ * says. A dropdown offers "Bachelor's". Neither string contains the other and
+ * they share one word out of three, so without this the two never meet and a
+ * required degree goes unanswered.
+ */
+const DEGREE_ALIASES: ReadonlyArray<readonly [RegExp, string[]]> = [
+  [/\bbachelor/, ["Bachelors", "Bachelor", "Bachelor's Degree", "Undergraduate"]],
+  [/\bmaster/, ["Masters", "Master", "Master's Degree", "Graduate"]],
+  [/\b(?:doctor|phd|ph d)/, ["Doctorate", "PhD", "Doctoral"]],
+  [/\bassociate/, ["Associates", "Associate", "Associate's Degree"]],
+  [/\b(?:high school|secondary)/, ["High School", "High School Diploma", "Secondary"]]
+]
+
+/** Degree spellings worth trying when the exact wording is not on offer. */
+function degreeAliases(value: string): string[] {
+  const wanted = canonical(value)
+
+  for (const [pattern, spellings] of DEGREE_ALIASES) {
+    if (pattern.test(wanted)) return spellings
+  }
+
+  return []
+}
+
+/**
  * Match free text, such as a country, state, gender or "how did you hear".
  *
  * Falls back to word overlap, which is what makes "United States of America"
@@ -142,6 +169,12 @@ export function pickText(options: FieldOption[], value: string): FieldOption | n
 
   // Retry with the state spelled the other way round.
   for (const alias of withSubdivisionAliases(value)) {
+    const hit = pickExactish(options, alias)
+    if (hit) return hit
+  }
+
+  // And with the shorter ways a degree gets listed.
+  for (const alias of degreeAliases(value)) {
     const hit = pickExactish(options, alias)
     if (hit) return hit
   }

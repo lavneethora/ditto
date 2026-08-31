@@ -1238,6 +1238,36 @@ export function readComboboxValue(input: HTMLElement): string {
     if (text) return text
   }
 
+  /**
+   * Whatever the field is left showing, once the furniture is taken out.
+   *
+   * The class-name lookup above only works while a widget names its parts,
+   * and emotion builds names like `css-1hb7zxy` with nothing in them to match.
+   * So this reads the field itself and removes everything that is not the
+   * answer: the label, the search box, the menu, the placeholder, the arrow.
+   *
+   * It matters more than a tidier read-back. When the value cannot be read,
+   * commit believes its click failed and moves on to pressing arrow keys and
+   * Enter, and that is how a Discipline of "Computer Science" ended up as
+   * "Fashion": the click had worked, and the keystrokes that followed moved
+   * the selection somewhere else.
+   */
+  if (field) {
+    const clone = field.cloneNode(true) as HTMLElement
+
+    for (const junk of clone.querySelectorAll(
+      "input, textarea, label, legend, [role='listbox'], [role='option'], [class*='menu'], [class*='dropdown'], [class*='placeholder'], [class*='indicator'], [class*='Indicator'], [class*='helper'], [class*='error'], svg, button"
+    )) {
+      junk.remove()
+    }
+
+    const shown = (clone.innerText ?? clone.textContent ?? "").replace(/\s+/g, " ").trim()
+
+    // A chosen value, not a paragraph. Anything long is leftover prose from
+    // the field's own description rather than the answer.
+    if (shown && shown.length <= 120) return shown
+  }
+
   if (input instanceof HTMLInputElement && input.value) return input.value
 
   return ""

@@ -94,6 +94,7 @@ export function ResultRow({
       <span className="ditto-row-label">
         {result.label || "Unlabelled field"}
         {detail && <span className="ditto-row-detail">{detail}</span>}
+        {result.via && <span className="ditto-row-via">{result.via}</span>}
       </span>
     </>
   )

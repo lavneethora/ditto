@@ -2,7 +2,7 @@ import { resumeToFile } from "~profile/resume"
 
 import type { AttemptOutcome, FieldSpec } from "../types"
 import type { Resolved } from "../resolve"
-import { dismissMenu, holdsValue, readComboboxValue, selectFromCombobox } from "./combobox"
+import { dismissMenu, heldAs, readComboboxValue, selectFromCombobox } from "./combobox"
 import {
   attachFiles,
   dropFiles,
@@ -114,14 +114,17 @@ async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOut
      * is held to.
      */
     /**
-     * Judged only by what the control holds.
+     * Judged only by what the control holds, and named the way IT names it.
      *
-     * Not by whether the attempt believed it worked. FastAPI was listed as
-     * written while the box plainly did not contain it, which is the report
-     * telling the user something they can see is untrue. The control is the
-     * only authority on its own contents.
+     * Not by whether the attempt believed it worked: FastAPI was listed as
+     * written while the box plainly did not contain it. And not in the
+     * profile's own words either, because a taxonomy renames what it is
+     * given, so reporting "Python" against a field reading "Python
+     * (Programming Language)" made the panel call a correct box a mismatch.
      */
-    if (holdsValue(readComboboxValue(el), value)) added.push(value)
+    const landed = heldAs(readComboboxValue(el), value)
+
+    if (landed) added.push(landed)
     else refused.push(value)
   }
 

@@ -20,7 +20,7 @@ import type { AttemptOutcome, FieldSpec, FillResult, ProfileKey } from "./types"
  */
 
 /** Reads the current value back out of a control. */
-function readBack(field: FieldSpec): string | null {
+function readBack(field: FieldSpec, wrote?: string): string | null {
   // The element may have been replaced rather than updated. A control that is
   // genuinely gone cannot be confirmed; one that was merely re-rendered can,
   // and reporting the two the same way calls six correct fields failures.
@@ -29,7 +29,7 @@ function readBack(field: FieldSpec): string | null {
   // A file field is read before the missing-element check, because the whole
   // point of the check below is that a control which is gone cannot be
   // confirmed, and an uploader that took the file DELETES its input.
-  if (field.kind === "file") return readAttachedFile(field, el)
+  if (field.kind === "file") return readAttachedFile(field, el, wrote)
 
   if (!el) return null
 
@@ -156,24 +156,57 @@ const UPLOADER =
  * slow upload still gets its chance. Returning without a filename is not a
  * verdict: verify reads the DOM again afterwards and decides.
  */
-export async function settleFile(field: FieldSpec, budgetMs = 4000): Promise<void> {
+export async function settleFile(field: FieldSpec, wrote?: string, budgetMs = 4000): Promise<void> {
   const deadline = Date.now() + budgetMs
 
   while (Date.now() < deadline) {
-    if (readAttachedFile(field, relocate(field.el))) return
+    if (readAttachedFile(field, relocate(field.el), wrote)) return
     await new Promise((done) => setTimeout(done, 100))
   }
 }
 
-function readAttachedFile(field: FieldSpec, el: Element | null): string | null {
+function readAttachedFile(field: FieldSpec, el: Element | null, wrote?: string): string | null {
   if (el instanceof HTMLInputElement && el.files?.[0]) return el.files[0].name
 
+  /**
+   * The name that was attached, and the name with its extension taken off.
+   *
+   * Sites shorten what they print. Looking for the file Ditto actually sent
+   * is a better question than looking for something that LOOKS like a
+   * filename, which depends on guessing the extension right and fails
+   * outright on a resume saved without one.
+   */
+  const written = wrote ? canonical(wrote) : ""
+  const stem = wrote ? canonical(wrote.replace(/\.[^.]+$/, "")) : ""
+
   for (const scope of scopesFor(field, el)) {
-    const named = scope.textContent?.match(FILENAME)
+    const text = scope.textContent ?? ""
+    const shown = canonical(text)
+
+    if (written && shown.includes(written)) return wrote as string
+    if (stem.length > 2 && shown.includes(stem)) return wrote as string
+
+    const named = text.match(FILENAME)
     if (named) return named[0]
   }
 
   return null
+}
+
+/**
+ * What the uploader is actually showing, for the failure message.
+ *
+ * A read-back that fails silently costs a round trip with the user every
+ * time: "it shows a cross" says nothing about which of the stages missed.
+ * Printing what Ditto could see makes the panel say enough to act on.
+ */
+function uploaderText(field: FieldSpec): string {
+  for (const scope of scopesFor(field, relocate(field.el))) {
+    const text = (scope.textContent ?? "").replace(/\s+/g, " ").trim()
+    if (text) return text.length > 60 ? text.slice(0, 60) + "..." : text
+  }
+
+  return "nothing"
 }
 
 /**
@@ -274,13 +307,16 @@ export function verify(
       return { ...base, status: "error", reason: attempt.reason }
 
     case "wrote": {
-      const actual = readBack(field)
+      const actual = readBack(field, attempt.value)
 
       if (actual === null) {
         return {
           ...base,
           status: "error",
-          reason: "Wrote the value but the field did not accept it"
+          reason:
+            field.kind === "file"
+              ? `Attached "${attempt.value}" but the uploader shows ${uploaderText(field)}`
+              : "Wrote the value but the field did not accept it"
         }
       }
 

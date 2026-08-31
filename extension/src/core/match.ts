@@ -669,14 +669,19 @@ function taughtKey(label: string, learned: readonly LearnedMapping[]): string | 
 
   const byLength = [...learned].sort((a, b) => b.label.length - a.label.length)
 
+
   for (const entry of byLength) {
     if (!entry.label || !entry.key) continue
 
+    // Canonicalised here rather than at save time, so what is stored stays
+    // the question as the form asked it and the list can show it that way.
+    const asked = canonical(entry.label)
+
     const taught = new Set([
-      entry.label,
-      singularize(entry.label),
-      normalizeWording(entry.label),
-      normalizeWording(singularize(entry.label))
+      asked,
+      singularize(asked),
+      normalizeWording(asked),
+      normalizeWording(singularize(asked))
     ])
 
     for (const spelling of spellings) {

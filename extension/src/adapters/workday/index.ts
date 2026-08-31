@@ -1,4 +1,5 @@
 import { isCredentialField, isSubmitByName } from "~core/blocklist"
+import { canonical } from "~core/label"
 import type { Adapter, FieldKind, ProfileKey, RepeatableSection } from "~core/types"
 
 /**
@@ -103,6 +104,33 @@ function countPanels(section: Element): number {
     const label = doc.getElementById(group.getAttribute("aria-labelledby") ?? "")
     return Boolean(label?.matches("h1, h2, h3, h4, h5, h6"))
   }).length
+}
+
+/**
+ * Workday's own name for a skill, where it is not the obvious one.
+ *
+ * Every entry here was confirmed against a live Workday list, most of them
+ * after Ditto picked the wrong neighbour: C design over C, C++ STL over C++,
+ * Docker Swarm over Docker, Documentum Java over Java, FASTA over FastAPI.
+ *
+ * Naming them is not a workaround for the matcher, which still has to handle
+ * every skill not on this list. It is insurance on the ones already paid for:
+ * typing the exact entry makes it the unambiguous top hit, so no later change
+ * to the scoring can quietly take these back.
+ */
+const SKILL_LABELS: Record<string, string> = {
+  c: "C (Programming Language)",
+  "c++": "C++ Programming Language",
+  java: "Java (Programming Language)",
+  python: "Python (Programming Language)",
+  sql: "Structured Query Language (SQL)",
+  r: "R Programming",
+  react: "React.js",
+  "react js": "React.js",
+  docker: "Docker (Software)",
+  pandas: "Pandas (Software)",
+  numpy: "Python Numpy",
+  matlab: "MATLAB"
 }
 
 function automationId(el: Element): string {
@@ -246,6 +274,18 @@ export const workday: Adapter = {
     if (isSubmitByName(button) || isCredentialField(button)) return null
 
     return button
+  },
+
+  /**
+   * Only skills, and only where the site's name differs from the obvious one.
+   *
+   * Left deliberately narrow. A wrong entry here would type a name the tenant
+   * does not have; the search would then simply fail and hand the field back
+   * to the user, which is a worse outcome than the scoring having found it.
+   */
+  alias(value, key): string | null {
+    if (key !== "skills") return null
+    return SKILL_LABELS[canonical(value)] ?? null
   },
 
   key(el): ProfileKey | null {

@@ -17,8 +17,30 @@ import type { FieldOption } from "../types"
  * considerably worse.
  */
 
-const YES_WORDS = ["yes", "y", "true", "1", "i am", "i do", "i have", "affirmative"]
-const NO_WORDS = ["no", "n", "false", "0", "i am not", "i do not", "i don t", "negative"]
+const YES_WORDS = [
+  "yes",
+  "y",
+  "true",
+  "1",
+  "i am",
+  "i do",
+  "i have",
+  // Workday's self-identification questions answer in the first person:
+  // "I IDENTIFY AS ONE OR MORE OF THE CLASSIFICATIONS OF PROTECTED VETERANS".
+  "i identify",
+  "affirmative"
+]
+const NO_WORDS = [
+  "no",
+  "n",
+  "false",
+  "0",
+  "i am not",
+  "i do not",
+  "i don t",
+  "i do not identify",
+  "negative"
+]
 
 const DECLINE_WORDS = [
   "decline to state",
@@ -34,6 +56,15 @@ const DECLINE_WORDS = [
   "choose not to disclose",
   "do not wish to disclose",
   "not disclosed",
+  // Self-identification forms decline in their own words. Workday's veteran
+  // question offers "I DO NOT WISH TO SELF-IDENTIFY", which none of the
+  // phrasings above reaches.
+  "i do not wish to self identify",
+  "i don t wish to self identify",
+  "do not wish to self identify",
+  "i decline to self identify",
+  "i do not want to answer",
+  "do not want to answer",
   "opt out"
 ]
 
@@ -80,8 +111,58 @@ function bySynonyms(options: FieldOption[], synonyms: string[]): FieldOption | n
  * allowed to run loosely, because "no" is a substring of words like "none" and
  * "not applicable" and a sloppy contains-match flips the answer.
  */
+/** Any standalone negation, which is what makes an option a "no". */
+const NEGATED = /\b(?:not|never|neither|nor)\b/
+
+/**
+ * The longest synonym from `words` that this option's text begins with.
+ *
+ * Length is the measure because a longer phrase is a more specific claim.
+ * "I am not a veteran" begins with the affirmative "i am" and with the
+ * negative "i am not", and the second one is what the sentence means.
+ */
+function affinity(option: FieldOption, words: string[]): number {
+  let best = 0
+
+  for (const text of labelsOf(option)) {
+    for (const word of words) {
+      if (text === word || text.startsWith(word + " ")) best = Math.max(best, word.length)
+    }
+  }
+
+  return best
+}
+
+/**
+ * Match a yes/no answer.
+ *
+ * Two guards, both of them for real options seen on a live Workday form whose
+ * veteran question offers four answers rather than two.
+ *
+ * The first is polarity. "I AM NOT A VETERAN" starts with "i am", so a plain
+ * search for affirmatives picked it as the YES, and a veteran who said yes
+ * was told on their own application that they are not one. An option belongs
+ * to whichever side matches it more specifically.
+ *
+ * The second is the negation guard. "I IDENTIFY AS A VETERAN, JUST NOT A
+ * PROTECTED VETERAN" is affirmative right up until the word that reverses it,
+ * and it sits beside the option that actually means yes. Nothing carrying a
+ * negation can be a yes.
+ *
+ * Order within a side still decides between survivors, so "No, I do not have
+ * a disability" beats "I do not want to answer" for a plain no.
+ */
 export function pickBoolean(options: FieldOption[], value: boolean): FieldOption | null {
-  return bySynonyms(options, value ? YES_WORDS : NO_WORDS)
+  const wanted = value ? YES_WORDS : NO_WORDS
+  const opposite = value ? NO_WORDS : YES_WORDS
+
+  const eligible = options.filter((option) => {
+    if (value && labelsOf(option).some((text) => NEGATED.test(text))) return false
+
+    return affinity(option, wanted) >= affinity(option, opposite)
+  })
+
+  return bySynonyms(eligible, wanted)
 }
 
 export function pickTriState(options: FieldOption[], value: "yes" | "no" | "decline"): FieldOption | null {
@@ -310,6 +391,20 @@ function score(text: string, wanted: string, raw: string, rawWanted: string): nu
    * offered as the Java programming language.
    */
   if (raw.toLowerCase().trim().endsWith("(" + rawWanted.toLowerCase().trim() + ")")) return 700
+
+  /**
+   * A jurisdiction or qualifier in parentheses after the whole answer.
+   *
+   * Workday lists race as "Asian (United States of America)". The tail is
+   * longer than the answer, which the rule below reads as naming something
+   * else, so every race option was rejected and a required question went
+   * unanswered. The parentheses are the difference: "Asian (...)" is Asian,
+   * where "Asian Studies" is not.
+   *
+   * Requires the head to match exactly, so this cannot rescue a partial.
+   */
+  const head = raw.replace(/\s*\([^)]*\)\s*$/, "")
+  if (head !== raw && canonical(head) === wanted) return 850
 
   // "C" answered by "C (Programming Language)": the extra words say which C,
   // they do not name something else.

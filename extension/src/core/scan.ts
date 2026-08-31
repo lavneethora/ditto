@@ -229,7 +229,9 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
 
   const fields: FieldSpec[] = []
   const seenRadioGroups = new Set<string>()
-  const seenCheckboxGroups = new Set<string>()
+  // Names already emitted, per repeated block. The same name recurs
+  // legitimately in the next repeat of the same block.
+  const seenCheckboxGroups = new WeakMap<Element, Set<string>>()
   const seenCheckboxContainers = new WeakSet<Element>()
   const seenToggleGroups = new WeakSet<Element>()
   const seenDateGroups = new WeakSet<Element>()
@@ -374,9 +376,21 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
       // the same name; Ashby gives each the option's own text as its name and
       // relies on a shared fieldset. Grouping only by name misses the second
       // and reports one row per option.
+      /**
+       * Checkboxes sharing a name, WITHIN one repeated block.
+       *
+       * A name is only unique to a question inside the block that asks it.
+       * Workday repeats "I currently work here" once per job, so three jobs
+       * gave three checkboxes called `currentlyWorkHere`, which collapsed into
+       * a single field whose group label was every word in the Work
+       * Experience section and whose options were three identical boxes. It
+       * then tried to pick the option matching "false" and reported that
+       * against a wall of text.
+       */
+      const block = el.closest("[role='group'][aria-labelledby], fieldset") ?? root
       const sharingName = el.name
         ? Array.from(
-            root.querySelectorAll<HTMLInputElement>(
+            block.querySelectorAll<HTMLInputElement>(
               `input[type='checkbox'][name="${CSS.escape(el.name)}"]`
             )
           )
@@ -392,8 +406,11 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
 
       if (boxes.length > 1) {
         if (grouped) {
-          if (seenCheckboxGroups.has(el.name)) continue
-          seenCheckboxGroups.add(el.name)
+          const namesHere = seenCheckboxGroups.get(block) ?? new Set<string>()
+          if (namesHere.has(el.name)) continue
+
+          namesHere.add(el.name)
+          seenCheckboxGroups.set(block, namesHere)
         } else {
           if (seenCheckboxContainers.has(fieldset!)) continue
           seenCheckboxContainers.add(fieldset!)

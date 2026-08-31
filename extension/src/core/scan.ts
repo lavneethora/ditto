@@ -221,6 +221,15 @@ function assignRepeatIndexes(fields: FieldSpec[]): void {
  * Radios sharing a `name` collapse into a single `radiogroup` field, because
  * the user answers one question, not three, and the drawer should say so.
  */
+/**
+ * The block wrapping a file control, across the four target sites.
+ *
+ * Ordered widest-useful-first is wrong here: `closest` walks outward and stops
+ * at the first hit, so the list is simply every wrapper worth landing on.
+ */
+const FILE_BLOCK =
+  "[data-automation-id='attachments-FileUpload'], [data-field-path], .file-upload, [class*='upload'], [class*='attachment'], fieldset"
+
 export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
   resetFieldIds()
 
@@ -457,6 +466,22 @@ export function scan(doc: Document, adapter?: Adapter): FieldSpec[] {
 
     if (el instanceof HTMLInputElement && el.name) {
       spec.name = el.name
+    }
+
+    /**
+     * Remember the block a file control sits in, while it still sits in one.
+     *
+     * Greenhouse does not fill the input when a file is attached. It removes
+     * the input and paints a chip naming the file where the Attach button
+     * was, so by read-back time the element is gone and there is nothing to
+     * walk up from. The surrounding block survives the swap, which makes a
+     * reference taken now the only handle that still works later.
+     *
+     * Not resolved by label: the one label pointing at Greenhouse's resume
+     * input reads "Attach", and that word is part of what gets replaced.
+     */
+    if (kind === "file") {
+      spec.container = el.closest(FILE_BLOCK) ?? el.parentElement ?? undefined
     }
 
     fields.push(spec)

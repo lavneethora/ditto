@@ -233,7 +233,18 @@ async function fillCombobox(field: FieldSpec, resolved: Resolved): Promise<Attem
     return { kind: "error", reason: outcome.reason ?? "Could not set this dropdown" }
   }
 
-  return { kind: "wrote", value: outcome.value ?? wanted }
+  /**
+   * Report what the control holds, not what it was asked for.
+   *
+   * A dropdown answers in its own words: Ditto asks for "no" and the form
+   * records "I am not a protected veteran". Reporting the request meant
+   * verification compared "no" against that sentence, found no relationship
+   * between them, and put a red cross on a question that was answered
+   * correctly. The value the user can see is the one worth checking.
+   */
+  const showing = readComboboxValue(field.el as HTMLElement)
+
+  return { kind: "wrote", value: showing || outcome.value || wanted }
 }
 
 export async function fill(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {

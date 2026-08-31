@@ -221,6 +221,28 @@ async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOut
   return { kind: "wrote", value: added.join(", ") }
 }
 
+/**
+ * Whether this uploader is already showing the file Ditto is about to attach.
+ *
+ * Compared on the name without its extension, because sites print what they
+ * were given and some of them trim it.
+ */
+function fileAlreadyThere(field: FieldSpec, filename: string): boolean {
+  const input = field.el instanceof HTMLInputElement ? field.el : null
+  if (input?.files?.length) return true
+
+  const stem = canonical(filename.replace(/\.[^.]+$/, ""))
+  if (stem.length < 3) return false
+
+  const block = field.container?.isConnected
+    ? field.container
+    : (field.el as Element).isConnected
+      ? (field.el as Element).closest("[class*='upload'], [class*='attachment'], [data-automation-id]")
+      : null
+
+  return canonical(block?.textContent ?? "").includes(stem)
+}
+
 /** The dropdown path, shared by comboboxes and multi-selects. */
 async function fillCombobox(field: FieldSpec, resolved: Resolved): Promise<AttemptOutcome> {
   const choice = asChoice(resolved)
@@ -291,6 +313,20 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
     if (!first) return { kind: "skipped", reason: "Nothing saved to put here" }
 
     resolved = { kind: "text", value: first }
+  }
+
+  /**
+   * An uploader that already holds the file is done, not broken.
+   *
+   * Checked ahead of the liveness guard below, because a site that takes a
+   * file often removes the input it came from: Greenhouse deletes it outright.
+   * Judged after that guard, a resume that is visibly attached reads as a
+   * field that vanished.
+   */
+  if (field.kind === "file" && resolved.kind === "file") {
+    if (fileAlreadyThere(field, resolved.value.filename)) {
+      return { kind: "wrote", value: resolved.value.filename }
+    }
   }
 
   if (!isLive(field.el)) {

@@ -345,7 +345,7 @@ export async function autofill({
 
       remember(field)
 
-      const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
+      const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter), profile.learned)
 
       /**
        * Consent is the user's to give, before anything else is considered.

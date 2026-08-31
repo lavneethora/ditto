@@ -1,5 +1,6 @@
 import { resumeToFile } from "~profile/resume"
 
+import { canonical } from "../label"
 import type { AttemptOutcome, FieldSpec } from "../types"
 import type { Resolved } from "../resolve"
 import { dismissMenu, heldAs, readComboboxValue, selectFromCombobox } from "./combobox"
@@ -71,6 +72,36 @@ function asText(resolved: Resolved, kind: FieldSpec["kind"]): string | null {
   }
 }
 
+/**
+ * The one part of a date a field is asking for.
+ *
+ * Forms split dates across their own boxes: "Start date year" wants 2022, not
+ * 2022-09 and not 09/2022. Writing the whole thing leaves a required year
+ * empty or rejected, which is how an education start date the profile holds
+ * went unanswered.
+ *
+ * Only when the label names exactly one part. "Start date (MM/YYYY)" names
+ * two and gets the formatted value as before.
+ */
+function datePiece(label: string, value: string): string | null {
+  const iso = value.match(/^(\d{4})-(\d{2})(?:-(\d{2}))?$/)
+  if (!iso) return null
+
+  const asked = canonical(label)
+  const parts = [
+    /\byear\b/.test(asked) ? "year" : null,
+    /\bmonth\b/.test(asked) ? "month" : null,
+    /\bday\b/.test(asked) ? "day" : null
+  ].filter(Boolean)
+
+  if (parts.length !== 1) return null
+
+  if (parts[0] === "year") return iso[1]
+  if (parts[0] === "month") return iso[2]
+
+  return iso[3] ?? null
+}
+
 /** The comparable value for option picking. */
 function asChoice(resolved: Resolved): string | boolean | null {
   switch (resolved.kind) {
@@ -83,6 +114,27 @@ function asChoice(resolved: Resolved): string | boolean | null {
     default:
       return null
   }
+}
+
+/**
+ * Whether a control holds more than one value at a time.
+ *
+ * A multi-select says so in its markup: a `<select multiple>`, a widget that
+ * keeps chosen values as removable pills, or a group of checkboxes. Anything
+ * else is one answer, however many the profile has to offer.
+ */
+function acceptsMany(field: FieldSpec): boolean {
+  if (field.kind === "multiselect") return true
+
+  const el = field.el as HTMLElement
+  if (el instanceof HTMLSelectElement && el.multiple) return true
+
+  return Boolean(
+    el.closest?.("[data-uxi-widget-type='multiselect']") ||
+      el.parentElement?.querySelector?.(
+        "[data-automation-id='selectedItemList'], [class*='multiValue'], [class*='multi-value']"
+      )
+  )
 }
 
 /**
@@ -167,6 +219,22 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
     return { kind: "needs_you", reason: resolved.reason }
   }
 
+  /**
+   * A list only goes into a control that holds more than one value.
+   *
+   * "Select the top three engineer profile types. First preference:" is one
+   * choice out of six, and pouring a skills list into it tried every skill in
+   * turn against options none of them could match. A single choice gets a
+   * single value, and if that value is not on offer the question goes to the
+   * user, which is the honest outcome.
+   */
+  if (resolved.kind === "list" && !acceptsMany(field)) {
+    const first = resolved.value.find((item) => item.trim().length > 0)
+    if (!first) return { kind: "skipped", reason: "Nothing saved to put here" }
+
+    resolved = { kind: "text", value: first }
+  }
+
   if (!isLive(field.el)) {
     return { kind: "error", reason: "The field disappeared before it could be filled" }
   }
@@ -179,6 +247,13 @@ export async function fill(field: FieldSpec, resolved: Resolved): Promise<Attemp
       case "month": {
         const value = asText(resolved, field.kind)
         if (value === null) return { kind: "error", reason: "Nothing sensible to write here" }
+
+        // A box asking for one part of a date gets that part.
+        const piece = resolved.kind === "text" ? datePiece(field.label, resolved.value) : null
+        if (piece !== null) {
+          typeInto(field.el as HTMLInputElement | HTMLTextAreaElement, piece)
+          return { kind: "wrote", value: piece }
+        }
 
         // Workday spreads a date across separate MM and YYYY spin buttons
         // inside a group, so there is no single input to write to.

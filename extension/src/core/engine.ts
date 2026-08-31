@@ -61,6 +61,42 @@ function yieldToBrowser(): Promise<void> {
 }
 
 /**
+ * Wait for the form to stop moving before looking at it again.
+ *
+ * Answering a question can reveal another one, and the new field does not
+ * exist the instant the answer lands. Workday chains its export control
+ * questions this way: answering "are you a citizen of Cuba, Iran, North Korea
+ * or Syria" reveals a second list, and that one arrives on its own schedule.
+ *
+ * Re-scanning immediately looked at the page in the gap and found nothing, so
+ * the revealed question was never filled and never even reported. Waiting a
+ * fixed time would be a guess in both directions: too short for a slow reveal,
+ * wasted on a form that has nothing to add.
+ */
+function awaitFormSettled(doc: Document, quietMs = 400, budgetMs = 2500): Promise<void> {
+  return new Promise((done) => {
+    let quiet: ReturnType<typeof setTimeout>
+
+    const finish = () => {
+      clearTimeout(quiet)
+      clearTimeout(cap)
+      observer.disconnect()
+      done()
+    }
+
+    const observer = new MutationObserver(() => {
+      clearTimeout(quiet)
+      quiet = setTimeout(finish, quietMs)
+    })
+
+    const cap = setTimeout(finish, budgetMs)
+    quiet = setTimeout(finish, quietMs)
+
+    observer.observe(doc.body, { childList: true, subtree: true, attributes: true })
+  })
+}
+
+/**
  * The most panels Ditto will add to one section.
  *
  * A guard against a profile with a long history turning an application into a
@@ -258,11 +294,17 @@ export async function autofill({
    * shape turns up wherever a form asks a follow-up: a sponsorship question
    * that opens a date box, a "previously employed here" that asks when.
    *
-   * Bounded at two. One extra pass covers a follow-up; anything deeper is a
-   * form that rewrites itself as you fill it, and looping until the DOM
-   * settles risks not stopping at all.
+   * Bounded at three, because these follow-ups chain. Workday's export
+   * control screening asks about one list of countries, and the answer to
+   * that reveals a second, longer list. Two passes reach the first follow-up
+   * and stop one short of the second.
+   *
+   * Three rather than "until the DOM settles", which on a form that rewrites
+   * itself as you fill it risks not stopping at all. A pass that reveals
+   * nothing new costs one scan and exits, so the extra bound is only paid for
+   * when it is doing something.
    */
-  for (let pass = 0; pass < 2 && queue.length > 0; pass++) {
+  for (let pass = 0; pass < 3 && queue.length > 0; pass++) {
     for (const field of queue) {
       if (shouldCancel?.()) break
 
@@ -316,6 +358,9 @@ export async function autofill({
     }
 
     if (shouldCancel?.()) break
+
+    // A question revealed by the answer above needs a beat to appear.
+    await awaitFormSettled(doc)
 
     queue = filesLast(scan(doc, adapter).filter((field) => !alreadyDone(field.el as Element)))
     total += queue.length

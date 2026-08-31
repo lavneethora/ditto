@@ -290,6 +290,21 @@ export interface Adapter {
    * would break a pattern.
    */
   key?(el: Element): ProfileKey | null
+  /**
+   * The site's own name for a stored value, where it differs.
+   *
+   * A taxonomy has one entry per concept and its own spelling for it: Workday
+   * lists Java as "Java (Programming Language)" and Docker as "Docker
+   * (Software)", beside "Documentum Java" and "Docker Swarm", which are
+   * different things that read almost the same.
+   *
+   * Ditto can find those by scoring the options, and does. But every rule
+   * added for one of them has broken another, so the ones that have been
+   * confirmed against a real page are named here instead of re-derived from
+   * heuristics on every run. A hint, not a shortcut: the search still runs,
+   * the option still has to be found, and the read-back still has to agree.
+   */
+  alias?(value: string, key: ProfileKey): string | null
   /** Controls this adapter should never touch. */
   ignore?(el: Element): boolean
   /**

@@ -2,7 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 
 import { fileToResume, validateResumeFile } from "~profile/resume"
 import type { Profile } from "~profile/schema"
-import { clearResume, loadProfile, saveProfile, setResume, watchProfile } from "~profile/store"
+import {
+  clearResume,
+  forgetQuestion,
+  learnQuestion,
+  loadProfile,
+  saveProfile,
+  setResume,
+  watchProfile
+} from "~profile/store"
 
 /**
  * Owns the edit lifecycle for the profile: load, edit a draft, save, revert.
@@ -113,6 +121,34 @@ export function useProfile() {
     setDraft((current) => (current ? { ...current, resume: null } : current))
   }, [])
 
+  /**
+   * Record what a question means, and forget one.
+   *
+   * Written straight through rather than into the draft, so a mapping taught
+   * mid-fill is in effect for the very next run without an Update press.
+   */
+  const teach = useCallback(async (label: string, key: string, site: string) => {
+    writingRef.current = true
+    try {
+      const next = await learnQuestion({ label, key, site })
+      setSaved(next)
+      setDraft(next)
+    } finally {
+      writingRef.current = false
+    }
+  }, [])
+
+  const forget = useCallback(async (id: string) => {
+    writingRef.current = true
+    try {
+      const next = await forgetQuestion(id)
+      setSaved(next)
+      setDraft(next)
+    } finally {
+      writingRef.current = false
+    }
+  }, [])
+
   return {
     profile: draft,
     loading: draft === null,
@@ -123,7 +159,9 @@ export function useProfile() {
     save,
     revert,
     uploadResume,
-    removeResume
+    removeResume,
+    teach,
+    forget
   }
 }
 

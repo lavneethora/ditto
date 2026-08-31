@@ -184,9 +184,21 @@ const QUALIFIERS = new Set([
  * several options can start with the same word and only one of them is the
  * thing being named.
  */
-function score(text: string, wanted: string): number {
+function score(text: string, wanted: string, raw: string, rawWanted: string): number {
   if (!text) return 0
   if (text === wanted) return 1000
+
+  /**
+   * The name written out with the wanted value as its abbreviation:
+   * "Structured Query Language (SQL)".
+   *
+   * Read off the RAW text, because the parentheses are what make this a
+   * different claim from merely ending in the same word. Canonicalising drops
+   * them, and without them "Documentum Java" ends in "Java" exactly as much
+   * as "(SQL)" ends in SQL, which is how a document management product got
+   * offered as the Java programming language.
+   */
+  if (raw.toLowerCase().trim().endsWith("(" + rawWanted.toLowerCase().trim() + ")")) return 700
 
   // "C" answered by "C (Programming Language)": the extra words say which C,
   // they do not name something else.
@@ -207,18 +219,6 @@ function score(text: string, wanted: string): number {
     return 500 - Math.min(rest.length, 99)
   }
 
-  /**
-   * The name ending in the wanted value, which is how a taxonomy writes an
-   * abbreviation: "Structured Query Language (SQL)".
-   *
-   * Ranked above a name that merely starts the same, because "SQL*Net" starts
-   * with SQL and is an unrelated product, while an entry ending in "(SQL)" is
-   * SQL under its full name.
-   */
-  if (text.endsWith(" " + wanted)) return 700
-
-  // The wanted value appearing whole, somewhere inside a longer name.
-  if (text.includes(" " + wanted + " ")) return 300
 
   /**
    * The option is shorter than what was asked for, and is a whole leading
@@ -239,8 +239,10 @@ function pickExactish(options: FieldOption[], value: string): FieldOption | null
   let best: { option: FieldOption; score: number } | null = null
 
   for (const option of options) {
-    for (const text of labelsOf(option)) {
-      const points = score(text, wanted)
+    for (const raw of [option.label, option.value]) {
+      if (!raw) continue
+
+      const points = score(canonical(raw), wanted, raw, value)
       if (points > (best?.score ?? 0)) best = { option, score: points }
     }
   }

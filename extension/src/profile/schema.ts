@@ -137,7 +137,26 @@ export const EligibilitySchema = z.object({
   status: WorkStatus.nullable().default(null),
   atLeast18: z.boolean().nullable().default(null),
   residentOutsideUS: z.boolean().nullable().default(null),
-  residentCountry: z.string().default("")
+  residentCountry: z.string().default(""),
+  /**
+   * Every country the applicant holds citizenship in.
+   *
+   * A list because dual citizenship is common and a single value would make
+   * the sanctions screening question unanswerable for anyone holding two
+   * passports. Separate from `status`, which is a US work status, and from
+   * `residentCountry`: permanent residency in India says nothing about which
+   * country's passport someone carries, and forms ask about both.
+   */
+  citizenships: z.array(z.string()).default([]),
+  /**
+   * Non-competes, non-solicits and the rest.
+   *
+   * Two fields because forms ask this two ways: a Yes/No, and a box wanting
+   * the type of agreement and when it expires. The detail answers the box;
+   * the boolean answers the toggle.
+   */
+  boundByAgreements: z.boolean().nullable().default(null),
+  agreementDetails: z.string().default("")
 })
 
 export const EeoSchema = z.object({

@@ -387,6 +387,31 @@ const RULES: MatchRule[] = [
   { key: "personal.postalCode", test: /\bzip\b|\bpostal\s+code\b|\bpostcode\b/, weight: 90 },
   { key: "personal.city", test: /\bcity\b|\btown\b|\bmunicipality\b/, weight: 90 },
   { key: "personal.state", test: /\bstate\b|\bprovince\b|\bregion\b|\bcounty\b/, weight: 85 },
+  {
+    /**
+     * The country someone holds permanent residency IN, which is not where
+     * their post arrives.
+     *
+     * The key existed and the resolver knew how to answer it, but nothing
+     * routed to it, so "Please add your Country of Permanent Residency" fell
+     * through to the bare country rule below and received a mailing address.
+     * Someone living in Texas with permanent residency in India got "United
+     * States of America" on an export control form.
+     *
+     * Matched on the noun phrase only, not on the two words appearing near
+     * each other. The looser version stole "do you hold permanent resident
+     * status in a country outside the US", which is a yes/no about whether,
+     * not a box asking which.
+     *
+     * Requires the word permanent. A plain "Country of Residence" usually
+     * does mean where you live now, and that IS the address country.
+     */
+    key: "eligibility.residentCountry",
+    test: /\bcountry\s+of\s+permanent\s+residen(?:ce|cy)\b|\bpermanent\s+residen(?:ce|cy)\s+countr(?:y|ies)\b/,
+    weight: 118,
+    invert: false,
+    allowOnQuestion: true
+  },
   { key: "personal.country", test: /\bcountry\b/, weight: 70 },
 
   // --- Links ----------------------------------------------------------------

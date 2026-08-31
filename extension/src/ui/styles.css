@@ -1005,3 +1005,79 @@
   flex-shrink: 0;
   color: var(--ditto-text-faint);
 }
+
+/**
+ * The teach control, on a row Ditto could not answer.
+ *
+ * Quiet until hovered or focused. It sits on every unanswered row, and a row
+ * of loud dropdowns would read as the panel's main event rather than as the
+ * offer it is.
+ */
+.ditto-row--teachable {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 0;
+}
+
+.ditto-row-main {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding: 8px 10px;
+  border: 0;
+  border-radius: var(--ditto-r-sm);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 1.35;
+  color: inherit;
+}
+
+.ditto-row-main:hover {
+  background: var(--ditto-surface);
+}
+
+.ditto-teach {
+  flex: 0 0 auto;
+  align-self: center;
+  max-width: 120px;
+  margin-right: 8px;
+  padding: 3px 6px;
+  border: 1px solid var(--ditto-border);
+  border-radius: var(--ditto-r-sm);
+  background: var(--ditto-bg);
+  color: var(--ditto-text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  cursor: pointer;
+  opacity: 0.55;
+  transition: opacity 120ms ease;
+}
+
+.ditto-row--teachable:hover .ditto-teach,
+.ditto-teach:focus {
+  opacity: 1;
+}
+
+.ditto-learned {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.ditto-learned-main {
+  min-width: 0;
+}
+
+.ditto-learned-question {
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 2px;
+  overflow-wrap: anywhere;
+}

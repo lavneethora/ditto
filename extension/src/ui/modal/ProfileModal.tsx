@@ -13,6 +13,7 @@ import { AnswersSection } from "./sections/AnswersSection"
 import { EducationSection } from "./sections/EducationSection"
 import { EeoSection } from "./sections/EeoSection"
 import { EligibilitySection } from "./sections/EligibilitySection"
+import { LearnedSection } from "./sections/LearnedSection"
 import { PersonalSection } from "./sections/PersonalSection"
 import { PreferencesSection } from "./sections/PreferencesSection"
 import { SkillsSection } from "./sections/SkillsSection"
@@ -27,7 +28,8 @@ const PANES: Record<SectionId, ComponentType<SectionProps>> = {
   eeo: EeoSection,
   eligibility: EligibilitySection,
   preferences: PreferencesSection,
-  answers: AnswersSection
+  answers: AnswersSection,
+  learned: LearnedSection
 }
 
 /**

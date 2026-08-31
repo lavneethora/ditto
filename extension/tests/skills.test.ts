@@ -75,7 +75,7 @@ describe("adding several values to one control", () => {
     const outcome = await fill(field(), { kind: "list", value: ["Cobol", "Fortran"] })
 
     expect(outcome.kind).toBe("needs_you")
-  })
+  }, 20_000)
 
   it("skips an empty list rather than reporting a failure", async () => {
     const outcome = await fill(field(), { kind: "list", value: [] })

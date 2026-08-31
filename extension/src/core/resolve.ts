@@ -212,10 +212,28 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
       return text(p.lastName, "last name")
     case "personal.fullName":
       return text([p.firstName, p.lastName].filter(Boolean).join(" "), "name")
+    /**
+     * The preferred name if there is one, otherwise the legal one.
+     *
+     * Falling back per FIELD, not per person. Someone who goes by a different
+     * first name usually keeps their surname, so ticking "I have a preferred
+     * name" and filling only the first left every "Preferred Last Name" box
+     * empty, and a required one then failed the form on submit.
+     *
+     * A required field asking for a preferred surname is asking what to call
+     * you, and the legal surname is the truthful answer when there is no
+     * other.
+     */
     case "personal.preferredFirstName":
-      return text(p.hasPreferredName ? p.preferredFirstName : p.firstName, "preferred first name")
+      return text(
+        (p.hasPreferredName && p.preferredFirstName.trim()) || p.firstName,
+        "preferred first name"
+      )
     case "personal.preferredLastName":
-      return text(p.hasPreferredName ? p.preferredLastName : p.lastName, "preferred last name")
+      return text(
+        (p.hasPreferredName && p.preferredLastName.trim()) || p.lastName,
+        "preferred last name"
+      )
     case "personal.email":
       return text(p.email, "email")
     case "personal.phone":

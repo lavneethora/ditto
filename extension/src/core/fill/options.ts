@@ -149,19 +149,90 @@ export function pickText(options: FieldOption[], value: string): FieldOption | n
   return null
 }
 
+/**
+ * Words that qualify a name rather than change it.
+ *
+ * A skills taxonomy lists the language C as "C (Programming Language)" and
+ * C++ as "C++ Programming Language", alongside "C design" and "C++ STL",
+ * which are different things that merely start the same way. The first two
+ * are the entry for what was asked for; the last two are not.
+ *
+ * Reported live: Ditto took "C design" over "C (Programming Language)" and
+ * "C++ STL" over "C++ Programming Language", because it took the first option
+ * that started with the right characters and stopped looking.
+ */
+const QUALIFIERS = new Set([
+  "programming",
+  "language",
+  "languages",
+  "development",
+  "software",
+  "framework",
+  "frameworks",
+  "library",
+  "libraries",
+  "general"
+])
+
+/**
+ * How well one option answers the wanted value. Higher is better, 0 is no.
+ *
+ * Scored rather than taken in strategy order, because the strategies overlap:
+ * several options can start with the same word and only one of them is the
+ * thing being named.
+ */
+function score(text: string, wanted: string): number {
+  if (!text) return 0
+  if (text === wanted) return 1000
+
+  // "C" answered by "C (Programming Language)": the extra words say which C,
+  // they do not name something else.
+  if (text.startsWith(wanted + " ")) {
+    const rest = text.slice(wanted.length + 1)
+    if (rest.split(" ").every((word) => QUALIFIERS.has(word))) return 900 - Math.min(rest.length, 99)
+
+    /**
+     * Extra words that are not qualifiers usually name something else.
+     *
+     * Kept, but only while they are shorter than the name they follow.
+     * "Bachelor of Science (BS)" is the degree that was asked for; "Java
+     * Persistence API" is not Java, and "C design" is not C. The tail being
+     * longer than the head is the tell.
+     */
+    if (rest.length > wanted.length) return 0
+
+    return 500 - Math.min(rest.length, 99)
+  }
+
+  // The wanted value appearing whole, somewhere inside a longer name.
+  if (text.includes(" " + wanted + " ") || text.endsWith(" " + wanted)) return 300
+
+  /**
+   * The option is shorter than what was asked for, and is a whole leading
+   * word of it: "United States" for "United States of America".
+   *
+   * Word boundary, not any substring. "FASTA" is a substring of "FastAPI" and
+   * is a completely different thing, and Ditto put it in a skills list.
+   */
+  if (wanted.startsWith(text + " ")) return 250
+
+  return 0
+}
+
 function pickExactish(options: FieldOption[], value: string): FieldOption | null {
   const wanted = canonical(value)
   if (!wanted) return null
 
-  const direct = exact(options, wanted) ?? prefixed(options, wanted) ?? contains(options, wanted)
-  if (direct) return direct
+  let best: { option: FieldOption; score: number } | null = null
 
-  // Reverse containment: the option is shorter than the stored value.
-  // "United States" as an option, "United States of America" stored.
-  const reverse = options.find((option) =>
-    labelsOf(option).some((text) => text.length >= 3 && wanted.includes(text))
-  )
-  if (reverse) return reverse
+  for (const option of options) {
+    for (const text of labelsOf(option)) {
+      const points = score(text, wanted)
+      if (points > (best?.score ?? 0)) best = { option, score: points }
+    }
+  }
+
+  if (best) return best.option
 
   /**
    * Short words count when they carry a number.
@@ -175,19 +246,31 @@ function pickExactish(options: FieldOption[], value: string): FieldOption | null
   const wantedWords = wanted.split(" ").filter((w) => w.length > 2 || /\d/.test(w))
   if (wantedWords.length === 0) return null
 
-  let best: { option: FieldOption; score: number } | null = null
+  let overlap: { option: FieldOption; score: number } | null = null
 
   for (const option of options) {
     for (const text of labelsOf(option)) {
-      const words = new Set(text.split(" "))
-      const hits = wantedWords.filter((w) => words.has(w)).length
-      const score = hits / wantedWords.length
+      const words = text.split(" ").filter((w) => w.length > 2 || /\d/.test(w))
+      const found = new Set(words)
+      const hits = wantedWords.filter((w) => found.has(w)).length
 
-      if (score > (best?.score ?? 0)) best = { option, score }
+      const covered = hits / wantedWords.length
+      /**
+       * How much of the OPTION the match accounts for.
+       *
+       * Counting only the other direction, one word in common out of three
+       * scored a perfect match: "Java Persistence API" answered "Java", and
+       * on a skills list that is a claim the user never made. An option is
+       * the same thing as the value only if each is most of the other.
+       */
+      const accounted = words.length === 0 ? 0 : hits / words.length
+
+      const ratio = Math.min(covered, accounted)
+      if (ratio > (overlap?.score ?? 0)) overlap = { option, score: ratio }
     }
   }
 
-  return best && best.score >= 0.6 ? best.option : null
+  return overlap && overlap.score >= 0.6 ? overlap.option : null
 }
 
 /** Dispatch on the shape of the resolved value. */

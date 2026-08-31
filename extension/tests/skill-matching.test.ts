@@ -127,3 +127,19 @@ describe("a name written out in full", () => {
     expect(pickText(list, "SQL")?.label).toBe("SQL (Programming Language)")
   })
 })
+
+describe("software as a qualifier", () => {
+  it("takes Docker (Software), not Docker Swarm", () => {
+    // Confirmed against Workday's own list: the entry for Docker is
+    // "Docker (Software)". Swarm is a different product that starts the same.
+    const list = options("Docker Swarm", "Docker (Software)", "Docker Compose")
+
+    expect(pickText(list, "Docker")?.label).toBe("Docker (Software)")
+  })
+
+  it("takes Pandas (Software) for pandas", () => {
+    expect(pickText(options("Pandas (Software)", "Panda Express"), "Pandas")?.label).toBe(
+      "Pandas (Software)"
+    )
+  })
+})

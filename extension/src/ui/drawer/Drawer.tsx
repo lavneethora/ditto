@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { Adapter, FieldSpec, FillReport, FillResult } from "~core/types"
 import { analyze, autofill } from "~core/engine"
+import { relocate } from "~core/fill/dom"
 import { actionableItems, summaryLine } from "~core/report"
 import { describeResume } from "~profile/resume"
 import { Wordmark } from "~ui/Logo"
@@ -140,8 +141,22 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
   /** Scroll the underlying control into view so a NEEDS YOU row is actionable. */
   const reveal = useCallback(
     (result: FillResult) => {
-      const field = survey.fields.find((f) => f.id === result.fieldId)
-      const target = field?.el ?? doc.getElementById(result.fieldId)
+      /**
+       * The element the result carries, first.
+       *
+       * `fieldId` is a per-scan counter and a fill re-scans as the form
+       * reveals questions, so matching on it pointed rows at whatever field
+       * had taken that slot by the end: the optional phone extension row
+       * scrolled to the postal code.
+       */
+      // The element itself, or wherever the page moved it to since.
+      const carried = result.el
+        ? result.el.isConnected
+          ? result.el
+          : relocate(result.el)
+        : null
+
+      const target = carried ?? survey.fields.find((f) => f.id === result.fieldId)?.el
       if (!target) return
 
       target.scrollIntoView({ behavior: "smooth", block: "center" })

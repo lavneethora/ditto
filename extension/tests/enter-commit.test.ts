@@ -162,6 +162,10 @@ describe("a box that takes the typed text itself", () => {
     )
 
     expect(result.ok).toBe(false)
-    expect((document.getElementById("loc") as HTMLInputElement).value).toBe("Lubbock, Texas")
+
+    // Still holding what was typed, rather than having been cleared by a
+    // commit that did not happen. Which spelling is left depends on how many
+    // the search had time to try, and that is not the property under test.
+    expect((document.getElementById("loc") as HTMLInputElement).value).toMatch(/^Lubbock/)
   }, 15_000)
 })

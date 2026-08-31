@@ -308,6 +308,32 @@ const RULES: MatchRule[] = [
 
   // --- Links ----------------------------------------------------------------
 
+  /**
+   * Where the applicant is, which forms ask as a sentence.
+   *
+   * Ranked above the job-location rule, which any of these would otherwise
+   * match: "What is the location where you permanently reside?" was being
+   * answered with the city of a past job.
+   */
+  {
+    key: "personal.location",
+    test: /\bwhere\s+(?:are|do)\s+you\s+(?:currently\s+)?(?:located|live|living|reside|residing|based)\b/,
+    weight: 115,
+    allowOnQuestion: true
+  },
+  {
+    key: "personal.location",
+    test: /\blocation\s+where\s+you\b|\bwhere\s+you\s+(?:permanently\s+)?reside\b|\bplace\s+of\s+residence\b/,
+    weight: 115,
+    allowOnQuestion: true
+  },
+  {
+    key: "personal.location",
+    test: /\bcurrent\s+(?:city|location|residence)\b|\byour\s+location\b|\bcity\s+and\s+(?:state|province|country)\b/,
+    weight: 105,
+    allowOnQuestion: true
+  },
+
   { key: "personal.linkedin", test: /\blinked\s?in\b/, weight: 100 },
   { key: "personal.github", test: /\bgit\s?hub\b/, weight: 100 },
   {
@@ -346,11 +372,20 @@ const RULES: MatchRule[] = [
     test: /\bdescription\b|\bsummary\b|\bresponsibilit(?:y|ies)\b|\bachievements\b/,
     weight: 70
   },
-  { key: "work[].location", test: /\blocation\b/, weight: 60 },
+  // A job's location, named as such near the front of its own label. Late in
+  // a sentence the same word is usually about the applicant instead.
+  { key: "work[].location", test: /\blocation\b/, weight: 60, nearStart: 24 },
 
   // --- Everything else ------------------------------------------------------
 
-  { key: "skills", test: /\bskills?\b|\btechnolog(?:y|ies)\b|\bcompetenc(?:y|ies)\b/, weight: 80 },
+  {
+    key: "skills",
+    test: /\bskills?\b|\btechnolog(?:y|ies)\b|\bcompetenc(?:y|ies)\b/,
+    weight: 80,
+    // "…most relevant to your interests, skills and past experiences" is a
+    // question about engineering disciplines that happens to say "skills".
+    nearStart: 40
+  },
   { key: "resume", test: /\bresume\b|\bcv\b|\bcurriculum\s+vitae\b/, weight: 90 },
 
   // --- Preferences ----------------------------------------------------------
@@ -502,7 +537,10 @@ export function match(
 
   for (const rule of candidates) {
     if (question && !rule.allowOnQuestion) continue
-    if (!rule.test.test(label)) continue
+
+    const hit = rule.test.exec(label)
+    if (!hit) continue
+    if (rule.nearStart !== undefined && hit.index > rule.nearStart) continue
     if (DISQUALIFIERS[rule.key]?.test(label)) continue
 
     const weight = rule.weight ?? 50

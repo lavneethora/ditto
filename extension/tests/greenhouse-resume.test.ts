@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
+import { fill } from "~core/fill"
 import { scan } from "~core/scan"
 import type { FieldSpec } from "~core/types"
 import { settleFile, verify } from "~core/verify"
@@ -187,5 +188,54 @@ describe("a resume whose name is not a tidy filename", () => {
     expect(result.status).toBe("error")
     expect(result.reason).toContain("Lavneet_Hora_Resume.pdf")
     expect(result.reason).toMatch(/uploader shows/)
+  })
+})
+
+describe("a resume that is already attached", () => {
+  beforeEach(() => {
+    document.body.innerHTML = FORM
+  })
+
+  /**
+   * Reported on a live Workday run: the resume was uploaded twice.
+   *
+   * Workday appends rather than replaces, so the second attach is not
+   * harmless. The application goes out with the resume on it twice, which
+   * looks careless to whoever opens it.
+   */
+  it("is not attached a second time", async () => {
+    const { resume } = fileFields()
+    commitFile(0)
+
+    const outcome = await fill(resume, {
+      kind: "file",
+      value: {
+        filename: "Lavneet_Hora_Resume.pdf",
+        mimeType: "application/pdf",
+        size: 8,
+        data: "JVBERi0=",
+        updatedAt: 0
+      }
+    })
+
+    expect(outcome).toEqual({ kind: "wrote", value: "Lavneet_Hora_Resume.pdf" })
+    expect(document.querySelectorAll(".file-upload__filename").length).toBe(1)
+  })
+
+  it("is still attached when the uploader is empty", async () => {
+    const { resume } = fileFields()
+
+    await fill(resume, {
+      kind: "file",
+      value: {
+        filename: "Lavneet_Hora_Resume.pdf",
+        mimeType: "application/pdf",
+        size: 8,
+        data: "JVBERi0=",
+        updatedAt: 0
+      }
+    })
+
+    expect((document.getElementById("resume") as HTMLInputElement).files?.length).toBe(1)
   })
 })

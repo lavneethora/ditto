@@ -32,10 +32,27 @@ describe("the names that were getting picked wrong", () => {
     expect(alias("MATLAB")).toBe("MATLAB")
   })
 
-  it("says nothing about a skill it has never seen", () => {
-    // The scoring handles everything else, which is most of the list.
+  it("says nothing about a skill that is already its own top result", () => {
+    // The normal case, and most of any list. Confirmed by enumeration: each
+    // of these is the first thing Workday returns for its own name, so the
+    // matcher handles them and the map stays out of the way.
     expect(alias("Kubernetes")).toBeNull()
-    expect(alias("Rust")).toBeNull()
+    expect(alias("PyTorch")).toBeNull()
+    expect(alias("Linux")).toBeNull()
+    expect(alias("TypeScript")).toBeNull()
+    expect(alias("Selenium")).toBeNull()
+  })
+
+  it("names the ones a plain search ranks below something else", () => {
+    // Read off a live Workday search: "Go" returns Go-Carts, "PHP" returns
+    // phpBB, "R" returns SAP R, "AWS" returns AWS VPN.
+    expect(alias("Go")).toBe("Go Programming Language")
+    expect(alias("PHP")).toBe("PHP (Programming Language)")
+    expect(alias("R")).toBe("R Programming")
+    expect(alias("AWS")).toBe("Amazon Web Services (AWS)")
+    expect(alias("HTML")).toBe("Hyper Text Markup Language (HTML)")
+    expect(alias("Excel")).toBe("Microsoft Excel")
+    expect(alias("Jira")).toBe("Atlassian JIRA")
   })
 })
 

@@ -156,7 +156,16 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
       const held = profile.eligibility.citizenships.filter((c) => c.trim())
       if (held.length === 0) return { kind: "none", reason: "No citizenship saved" }
 
-      // A dropdown takes one country; a text box can carry the lot.
+      /**
+       * Three shapes, because forms ask for this three ways.
+       *
+       * Workday's is "Please add your Country of Citizenship or Countries of
+       * Citizenship if dual", which is a multi-select and wants every
+       * passport. A single dropdown can only take one. A text box takes the
+       * lot as a sentence.
+       */
+      if (field.kind === "multiselect") return { kind: "list", value: held }
+
       return field.kind === "combobox" || field.kind === "select"
         ? { kind: "text", value: held[0] }
         : { kind: "text", value: held.join(", ") }

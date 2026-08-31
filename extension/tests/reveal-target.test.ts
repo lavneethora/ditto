@@ -22,7 +22,7 @@ const profile = ProfileSchema.parse({
     firstName: "Lavneet",
     lastName: "Hora",
     email: "a@b.com",
-    phone: "8324180086",
+    phone: "5551234567",
     postalCode: "79409"
   }
 })

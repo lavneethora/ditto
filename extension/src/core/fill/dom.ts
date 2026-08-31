@@ -65,12 +65,32 @@ export function fireInput(el: Element): void {
  * Focus first and blur after, because several ATS validate on blur and will
  * leave a red "required" state on a field that already has the right value.
  */
-export function typeInto(el: ValueElement, value: string): void {
+export async function typeInto(el: ValueElement, value: string): Promise<void> {
   assertAllowed(el)
 
   el.focus?.()
-  setNativeValue(el, value)
-  fireInput(el)
+
+  /**
+   * Typed out, not set in one go.
+   *
+   * Confirmed on a live Ashby form: the value landed in the DOM and in
+   * React's own props, and the form still rejected the field as empty on
+   * submit. Clicking into it, typing one character and deleting it made the
+   * error go away, so what the site records an answer from is the act of
+   * typing, not the value that ends up there.
+   *
+   * No delay between characters: the events are what matter, and pacing them
+   * out is only needed for a search box that debounces a query. A long
+   * paragraph costs a few milliseconds this way rather than several seconds.
+   */
+  if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement) {
+    await typeSequentially(el, value, 0)
+  } else {
+    setNativeValue(el, value)
+    el.dispatchEvent(new Event("input", { bubbles: true }))
+  }
+
+  el.dispatchEvent(new Event("change", { bubbles: true }))
   el.blur?.()
 }
 
@@ -112,7 +132,7 @@ function inputEvent(type: "beforeinput" | "input", char: string): Event {
 }
 
 export async function typeSequentially(
-  el: HTMLInputElement,
+  el: HTMLInputElement | HTMLTextAreaElement,
   value: string,
   delayMs = 12
 ): Promise<void> {

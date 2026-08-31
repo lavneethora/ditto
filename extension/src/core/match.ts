@@ -28,6 +28,7 @@ export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
   "eligibility.residentOutsideUS",
   "eligibility.citizenOfNamedCountries",
   "eligibility.boundByAgreements",
+  "forms.acceptTerms",
   "personal.hasPreferredName",
   "work[].current",
   "eeo.authorizedUS",
@@ -232,6 +233,26 @@ const RULES: MatchRule[] = [
     key: "eligibility.citizenOrResidentOrProtected",
     test: /\b(?:any of the following|1324b|protected\s+person)\b|\bcitizen\b[^?]{0,80}\bpermanent\s+resident\b|\bpermanent\s+resident\b[^?]{0,80}\bprotected\b/,
     weight: 120,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    /**
+     * Accepting the terms of applying.
+     *
+     * Required on every form that asks it, with one possible answer, so
+     * leaving it for the user is leaving them a chore rather than a choice.
+     *
+     * Not the same as consent, which is still refused before any of these
+     * rules run. Agreeing that a privacy policy was SHOWN to you is an
+     * acknowledgement; agreeing to your data being processed for marketing,
+     * or to an employer running AI over your application, is a decision that
+     * is yours. Requiring both an acceptance word and the name of a policy
+     * document keeps this off "I agree to receive updates about future roles".
+     */
+    key: "forms.acceptTerms",
+    test: /\b(?:accept|agree|acknowledge|have\s+read|understand)\b[^?]{0,80}\b(?:terms\s+(?:and\s+conditions|of\s+(?:service|use))|conditions\s+of\s+use|privacy\s+(?:policy|notice|statement))\b|\b(?:terms\s+(?:and\s+conditions|of\s+(?:service|use))|privacy\s+(?:policy|notice|statement))\b[^?]{0,40}\b(?:accept|agree|acknowledge)\b/,
+    weight: 135,
     invert: false,
     allowOnQuestion: true
   },

@@ -1,3 +1,4 @@
+import { COUNTRIES } from "~profile/geo"
 import type { Profile, Resume, TriState } from "~profile/schema"
 
 import type { FieldSpec, ProfileKey } from "./types"
@@ -150,6 +151,88 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
 
     case "eligibility.residentCountry":
       return text(profile.eligibility.residentCountry, "country of residence")
+
+    case "eligibility.citizenships": {
+      const held = profile.eligibility.citizenships.filter((c) => c.trim())
+      if (held.length === 0) return { kind: "none", reason: "No citizenship saved" }
+
+      // A dropdown takes one country; a text box can carry the lot.
+      return field.kind === "combobox" || field.kind === "select"
+        ? { kind: "text", value: held[0] }
+        : { kind: "text", value: held.join(", ") }
+    }
+
+    /**
+     * "Are you a citizen of any one of these countries: Cuba, Iran, North
+     * Korea, or Syria?"
+     *
+     * Answered by reading the countries out of the question and checking them
+     * against the passports on file. That is a stored fact being compared,
+     * not a guess: a Yes here is an export control declaration and a No is a
+     * legal statement, so neither may be inferred from something adjacent.
+     * Permanent residency in India, for instance, settles nothing.
+     *
+     * Refuses in three cases, each of which would otherwise produce a
+     * confident wrong answer:
+     *
+     *  - No citizenship saved. Nothing to compare.
+     *  - No country recognised in the question. "A country in the EU/EFTA"
+     *    names a region, and answering it would mean knowing the membership
+     *    list rather than reading one.
+     *  - A citizenship on file that is not a country this build knows, so
+     *    "not in the list" might only mean "not in our list".
+     */
+    case "eligibility.citizenOfNamedCountries": {
+      const held = profile.eligibility.citizenships.map((c) => canonical(c)).filter(Boolean)
+      if (held.length === 0) return { kind: "none", reason: "No citizenship saved" }
+
+      const known = new Set(COUNTRIES.map((c) => canonical(c)))
+      if (held.some((c) => !known.has(c))) {
+        return {
+          kind: "needs_you",
+          reason: "One of your saved citizenships is not a country Ditto can check against"
+        }
+      }
+
+      const asked = canonical(field.label)
+      const named = COUNTRIES.filter((country) => {
+        const name = canonical(country)
+        return new RegExp(`(?:^|\\s)${name}(?:$|\\s)`).test(asked)
+      })
+
+      if (named.length === 0) {
+        return { kind: "needs_you", reason: "This question does not name countries Ditto can read" }
+      }
+
+      const isOne = named.some((country) => held.includes(canonical(country)))
+
+      return { kind: "boolean", value: invert ? !isOne : isOne }
+    }
+
+    /**
+     * Non-competes, non-solicits and the rest.
+     *
+     * One key, two shapes, because forms ask this both ways and often in one
+     * breath: "Are you bound by any agreements...? If yes, share the specific
+     * type of agreement and when it expires." A toggle gets the boolean; a
+     * box gets what the user actually wrote, since "Yes" alone does not
+     * answer a question asking which agreement and until when.
+     */
+    case "eligibility.boundByAgreements": {
+      const bound = profile.eligibility.boundByAgreements
+      if (bound === null) return { kind: "none", reason: "Not answered in your profile" }
+
+      if (field.kind === "text" || field.kind === "textarea") {
+        const detail = profile.eligibility.agreementDetails.trim()
+        if (bound && !detail) {
+          return { kind: "needs_you", reason: "Add the agreement details to your profile" }
+        }
+
+        return { kind: "text", value: bound ? detail : "No" }
+      }
+
+      return { kind: "boolean", value: invert ? !bound : bound }
+    }
 
     case "eeo.authorizedUS":
     case "eeo.requiresSponsorship":

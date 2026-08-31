@@ -293,7 +293,17 @@ export function verify(
     fieldId: field.id,
     label: field.label,
     required: field.required,
-    key
+    key,
+    /**
+     * Relocated, so a row still points somewhere after a re-render replaced
+     * the node the scan captured.
+     *
+     * Falls back to the block the control lived in, for a site that removes
+     * the control outright: Greenhouse deletes its file input on attach, and
+     * a resume row with nothing to point at is a row that does nothing when
+     * clicked.
+     */
+    el: relocate(field.el) ?? (field.container?.isConnected ? field.container : field.el)
   }
 
   switch (attempt.kind) {

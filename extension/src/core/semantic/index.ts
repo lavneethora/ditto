@@ -20,8 +20,15 @@ export type { SemanticMatch } from "./rank"
  * bearing.
  */
 
-/** How long the whole batch may take before Ditto gives up and moves on. */
-const EMBED_BUDGET_MS = 8000
+/**
+ * How long the whole batch may take before Ditto gives up and moves on.
+ *
+ * Generous, because the cost of waiting is a slower fill and the cost of
+ * giving up early is a field the user fills by hand. The document is warmed
+ * at browser startup, so this should only ever be reached if something is
+ * actually wrong.
+ */
+const EMBED_BUDGET_MS = 15000
 
 async function embed(texts: string[]): Promise<number[][] | null> {
   if (texts.length === 0) return []

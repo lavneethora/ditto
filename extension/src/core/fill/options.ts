@@ -191,6 +191,17 @@ function degreeAliases(value: string): string[] {
   return []
 }
 
+/** The bare answers a profile stores, and the sentences forms offer for them. */
+const STATED_ANSWERS: ReadonlyMap<string, string[]> = new Map([
+  ["yes", YES_WORDS],
+  ["true", YES_WORDS],
+  ["no", NO_WORDS],
+  ["false", NO_WORDS],
+  ["decline", DECLINE_WORDS],
+  ["decline to answer", DECLINE_WORDS],
+  ["prefer not to say", DECLINE_WORDS]
+])
+
 /**
  * Match free text, such as a country, state, gender or "how did you hear".
  *
@@ -201,6 +212,26 @@ function degreeAliases(value: string): string[] {
 export function pickText(options: FieldOption[], value: string): FieldOption | null {
   const direct = pickExactish(options, value)
   if (direct) return direct
+
+  /**
+   * A yes, a no or a decline, asked as a sentence.
+   *
+   * The EEO questions store a tri-state and the form offers "I am not a
+   * protected veteran" and "I don't wish to answer". A dropdown reaches this
+   * function with the bare word, which scores zero against every one of those
+   * and is then thrown away by the length filter for being two letters long,
+   * so the veteran question could never be answered on a form that asks it as
+   * a dropdown rather than as radios. The radio path has had these synonyms
+   * all along; this is the same table, reachable from the other path.
+   *
+   * After the ordinary matching, so a genuine option labelled "No" still wins
+   * on its own merits.
+   */
+  const stated = STATED_ANSWERS.get(canonical(value))
+  if (stated) {
+    const hit = bySynonyms(options, stated)
+    if (hit) return hit
+  }
 
   /**
    * Retry with the state spelled the other way round, for values that are

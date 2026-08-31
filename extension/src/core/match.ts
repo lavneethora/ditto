@@ -1,4 +1,4 @@
-import { canonical } from "./label"
+import { canonical, singularize } from "./label"
 import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 
 /**
@@ -209,20 +209,12 @@ const RULES: MatchRule[] = [
 
   { key: "eeo.hispanicLatino", allowOnQuestion: true, test: /\bhispanic\b|\blatino\b|\blatinx\b/, weight: 90 },
   { key: "eeo.disability", allowOnQuestion: true, test: /\bdisabilit(?:y|ies)\b|\bdisabled\b/, weight: 90 },
-  /**
-   * Plural, because forms write it either way and one of them was invisible.
-   *
-   * Workday's Voluntary Disclosures labels this "Veterans status". `\bveteran\b`
-   * cannot match "veterans": the boundary has to fall right after the n, and
-   * there is an s there. A required self-identification question was skipped
-   * for a missing letter.
-   */
-  { key: "eeo.veteran", allowOnQuestion: true, test: /\bveterans?\b|\bmilitary\s+service\b/, weight: 90 },
+  { key: "eeo.veteran", allowOnQuestion: true, test: /\bveteran\b|\bmilitary\s+service\b/, weight: 90 },
   { key: "eeo.pronouns", allowOnQuestion: true, test: /\bpronouns?\b/, weight: 100 },
   { key: "eeo.sexualOrientation", allowOnQuestion: true, test: /\bsexual\s+orientation\b/, weight: 100 },
   { key: "eeo.lgbtq", allowOnQuestion: true, test: /\blgbtq?\+?\b|\bqueer\b/, weight: 95 },
   { key: "eeo.gender", allowOnQuestion: true, test: /\bgender\b|\bsex\b/, weight: 80 },
-  { key: "eeo.race", allowOnQuestion: true, test: /\braces?\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+groups?\b/, weight: 80 },
+  { key: "eeo.race", allowOnQuestion: true, test: /\brace\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+group\b/, weight: 80 },
 
   // --- Names ----------------------------------------------------------------
 
@@ -701,29 +693,61 @@ export function match(
   // MatchRule.allowOnQuestion.
   const question = isQuestion(field.label)
 
-  let best: MatchResult | null = null
-  let bestWeight = -1
+  /**
+   * The best rule for one spelling of the label.
+   *
+   * Pulled out so it can be run twice: once on the label as the form wrote
+   * it, and if nothing matched at all, once on the label with every word
+   * reduced to its singular.
+   */
+  const bestFor = (text: string): MatchResult | null => {
+    let best: MatchResult | null = null
+    let bestWeight = -1
 
-  for (const rule of candidates) {
-    if (question && !rule.allowOnQuestion) continue
+    for (const rule of candidates) {
+      if (question && !rule.allowOnQuestion) continue
 
-    const hit = rule.test.exec(label)
-    if (!hit) continue
-    if (rule.nearStart !== undefined && hit.index > rule.nearStart) continue
-    if (DISQUALIFIERS[rule.key]?.test(label)) continue
+      const hit = rule.test.exec(text)
+      if (!hit) continue
+      if (rule.nearStart !== undefined && hit.index > rule.nearStart) continue
+      if (DISQUALIFIERS[rule.key]?.test(text)) continue
 
-    const weight = rule.weight ?? 50
-    if (weight <= bestWeight) continue
+      const weight = rule.weight ?? 50
+      if (weight <= bestWeight) continue
 
-    best = {
-      key: applySection(rule.key, section),
-      invert: rule.invert ?? false,
-      rule: String(rule.test)
+      best = {
+        key: applySection(rule.key, section),
+        invert: rule.invert ?? false,
+        rule: String(rule.test)
+      }
+      bestWeight = weight
     }
-    bestWeight = weight
+
+    return best
   }
 
-  return best
+  /**
+   * Plurals, solved once rather than one regex at a time.
+   *
+   * Workday labels its veteran question "Veterans status", and `\bveteran\b`
+   * cannot match "veterans" because the word boundary has to fall right after
+   * the n. A required legal self-identification was skipped over one letter,
+   * and there was no reason to think it would be the last such letter. Every
+   * rule now gets the singular spelling for free.
+   *
+   * Strictly a fallback, and that is what makes it safe. A label that already
+   * matched something keeps that match, so this can only ever turn a miss
+   * into a hit. Running both spellings in one pass instead made a rule that
+   * lists who qualifies for work authorisation ("U.S. citizens, lawful
+   * permanent residents") reachable, where it outranked and stole the
+   * question about authorisation itself.
+   */
+  const asWritten = bestFor(label)
+  if (asWritten) return asWritten
+
+  const singular = singularize(label)
+
+  return singular === label ? null : bestFor(singular)
 }
 
 /**

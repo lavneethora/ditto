@@ -295,7 +295,19 @@ const RULES: MatchRule[] = [
     allowOnQuestion: true
   },
 
-  { key: "personal.fullName", test: /^(?:full\s+|legal\s+|your\s+|preferred\s+){0,3}name$/, weight: 70 },
+  {
+    // "Preferred Name" is deliberately NOT here: it asks what to call you, and
+    // allowing it as a prefix put the full legal name into that box.
+    key: "personal.fullName",
+    test: /^(?:full\s+|legal\s+|your\s+){0,3}name$/,
+    weight: 70
+  },
+  // A single "Preferred Name" box wants the name you go by, not both halves.
+  {
+    key: "personal.preferredFirstName",
+    test: /^preferred\s+name$|^name\s+you\s+(?:go\s+by|prefer)$|^nickname$/,
+    weight: 105
+  },
 
   // --- Contact --------------------------------------------------------------
 

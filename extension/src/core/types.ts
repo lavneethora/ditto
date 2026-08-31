@@ -53,6 +53,16 @@ export interface FieldSpec {
   options?: FieldOption[]
   /** Index within a repeated block, e.g. the second education entry. */
   repeatIndex?: number
+  /**
+   * The block this control lives in, captured while it is still there.
+   *
+   * For a file input this is the only reliable way back. Greenhouse does not
+   * fill the input on attach, it DELETES it and paints a chip naming the file
+   * in its place, so the element read-back was holding no longer exists. The
+   * surrounding block survives, and holding a reference to it needs no
+   * guessing about labels or ids.
+   */
+  container?: Element
 }
 
 /**

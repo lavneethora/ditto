@@ -219,6 +219,32 @@ export const AnswerSchema = z.object({
 })
 export type Answer = z.infer<typeof AnswerSchema>
 
+/**
+ * A question the user has told Ditto the meaning of.
+ *
+ * The packaged rules recognise a wording. Forms mean the same thing and spell
+ * it however they like, and no table of phrasings converges, because there is
+ * always another form and always a company asking something only it asks.
+ *
+ * So the user gets to answer that once. Correcting a field Ditto did not
+ * recognise records the question against the profile field that answers it,
+ * and every later form asking the same thing is filled.
+ *
+ * Points at the FIELD, not at the text that was typed. A stored answer goes
+ * quietly stale when the profile changes; a stored mapping follows it.
+ */
+export const LearnedSchema = z.object({
+  id: z.string(),
+  /** The question as asked, canonicalised by label.ts. */
+  label: z.string().default(""),
+  /** A ProfileKey. Kept as a string here so the schema stays free of core. */
+  key: z.string().default(""),
+  /** Where it was taught, so a mapping can be traced back to a form. */
+  site: z.string().default(""),
+  createdAt: z.number().default(0)
+})
+export type Learned = z.infer<typeof LearnedSchema>
+
 /** The resume, stored as base64 so it survives chrome.storage serialization. */
 export const ResumeSchema = z.object({
   filename: z.string(),
@@ -252,12 +278,13 @@ export const ProfileSchema = z.object({
   eligibility: EligibilitySchema.default({}),
   preferences: PreferencesSchema.default({}),
   answers: z.array(AnswerSchema).default([]),
+  learned: z.array(LearnedSchema).default([]),
   resume: ResumeSchema.nullable().default(null),
   settings: SettingsSchema.default({})
 })
 export type Profile = z.infer<typeof ProfileSchema>
 
-/** The eight sections of the profile modal, in nav order. */
+/** The sections of the profile modal, in nav order. */
 export const SECTIONS = [
   "personal",
   "education",
@@ -266,7 +293,8 @@ export const SECTIONS = [
   "eeo",
   "eligibility",
   "preferences",
-  "answers"
+  "answers",
+  "learned"
 ] as const
 export type SectionId = (typeof SECTIONS)[number]
 
@@ -278,7 +306,8 @@ export const SECTION_LABELS: Record<SectionId, string> = {
   eeo: "Equal Employment",
   eligibility: "Eligibility",
   preferences: "Preferences",
-  answers: "Answers"
+  answers: "Answers",
+  learned: "Learned Questions"
 }
 
 /** A fresh, empty profile. Parsing `{}` applies every default above. */
@@ -317,6 +346,10 @@ export function isSectionComplete(profile: Profile, section: SectionId): boolean
       return profile.education.some((e) => e.school && e.degree)
     case "work":
       return profile.work.some((w) => w.company && w.title)
+    case "learned":
+      // Nothing to complete. It fills itself as the user corrects things, and
+      // an empty list is the normal state on day one.
+      return true
     case "skills":
       return profile.skills.length > 0
     case "eeo": {

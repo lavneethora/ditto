@@ -26,6 +26,8 @@ export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
   "eligibility.citizenOrResidentOrProtected",
   "eligibility.atLeast18",
   "eligibility.residentOutsideUS",
+  "eligibility.citizenOfNamedCountries",
+  "eligibility.boundByAgreements",
   "personal.hasPreferredName",
   "work[].current",
   "eeo.authorizedUS",
@@ -229,6 +231,60 @@ const RULES: MatchRule[] = [
   {
     key: "eligibility.citizenOrResidentOrProtected",
     test: /\b(?:any of the following|1324b|protected\s+person)\b|\bcitizen\b[^?]{0,80}\bpermanent\s+resident\b|\bpermanent\s+resident\b[^?]{0,80}\bprotected\b/,
+    weight: 120,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    /**
+     * The sanctions screening question, which names the countries it cares
+     * about: "Are you a citizen of any one of these countries: Cuba, Iran,
+     * North Korea, or Syria?"
+     *
+     * The listing phrase is what keeps this off "Are you a US citizen?", which
+     * is a different question with a different answer. Whether the stored
+     * citizenships actually settle it is decided in the resolver, which reads
+     * the countries out of the label; a question naming a region rather than
+     * countries goes to the user.
+     */
+    key: "eligibility.citizenOfNamedCountries",
+    test: /\bcitizen(?:ship)?\b[^?]{0,60}\b(?:any\s+(?:one\s+)?of|one\s+of\s+the\s+following|of\s+the\s+following|these\s+countries|listed\s+below)\b/,
+    weight: 130,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    /**
+     * Which passport, not which work status.
+     *
+     * Deliberately narrow. A bare mention of "citizenship" is usually the US
+     * work authorisation question in disguise, so this only fires on wording
+     * that asks for a country.
+     */
+    key: "eligibility.citizenships",
+    test: /\b(?:countr(?:y|ies)\s+of\s+citizenship|citizenship\s+countr(?:y|ies)|country\s+you\s+are\s+a\s+citizen\s+of|nationality)\b/,
+    weight: 118,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    /**
+     * Non-competes and the rest.
+     *
+     * Kept off ordinary employment history by requiring the words that make
+     * it a restriction question. "Agreements with your current employer" on
+     * its own is close enough to a reference check to be worth the extra
+     * anchor.
+     */
+    key: "eligibility.boundByAgreements",
+    test: /\bnon.?compet(?:e|ition)\b|\bnon.?solicit(?:ation)?\b|\brestrictive\s+covenant/,
+    weight: 125,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    key: "eligibility.boundByAgreements",
+    test: /\bbound\s+by\s+any\s+(?:agreement|contract)|\bagreements?\s+with\s+your\s+(?:current|previous|former)\s+employer\b/,
     weight: 120,
     invert: false,
     allowOnQuestion: true

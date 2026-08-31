@@ -28,6 +28,20 @@ async function ensureOffscreen(): Promise<void> {
   await creating
 }
 
+/**
+ * Warmed as soon as the browser starts, not on the first request.
+ *
+ * Loading 23MB of weights takes seconds. Created lazily, the very first
+ * autofill would race that load, blow its budget and come back with nothing,
+ * so the tier would look broken exactly once per install: the run where
+ * someone is deciding whether it works.
+ *
+ * The page starts loading the model the moment it exists, so by the time
+ * anyone fills a form it is ready.
+ */
+chrome.runtime.onStartup?.addListener(() => void ensureOffscreen().catch(() => {}))
+chrome.runtime.onInstalled?.addListener(() => void ensureOffscreen().catch(() => {}))
+
 chrome.runtime.onMessage.addListener((message, sender, respond) => {
   if (message?.type !== "ditto:embed" || sender.tab === undefined) return false
 

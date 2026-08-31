@@ -30,9 +30,33 @@ function readBack(field: FieldSpec): string | null {
   switch (field.kind) {
     case "text":
     case "textarea":
-    case "date":
-    case "month":
       return (el as HTMLInputElement).value ?? null
+
+    case "date":
+    case "month": {
+      // A date split across spin buttons has no single value to read. The
+      // group is a div, so reading `.value` off it returned undefined and
+      // every From and To on the page was reported as refused while showing
+      // the right date.
+      if (el instanceof HTMLInputElement) return el.value ?? null
+
+      // By name, not in document order: the month box comes first on screen,
+      // and joining as it reads gives "06-2024" for a date written as
+      // "2024-06", which then fails to match what was written.
+      const parts: Record<string, string> = {}
+
+      for (const box of el.querySelectorAll<HTMLInputElement>("input[role='spinbutton']")) {
+        const which = (box.getAttribute("aria-label") ?? "").toLowerCase().trim()
+        if (which) parts[which] = box.value.trim()
+      }
+
+      // A year and a month at minimum. Half a date is not a date, and
+      // confirming from the month alone would pass a field the form will
+      // reject.
+      if (!parts.year || !parts.month) return null
+
+      return parts.day ? `${parts.year}-${parts.month}-${parts.day}` : `${parts.year}-${parts.month}`
+    }
 
     case "select": {
       const select = el as HTMLSelectElement
@@ -64,7 +88,21 @@ function readBack(field: FieldSpec): string | null {
     case "file": {
       const input = el instanceof HTMLInputElement ? el : null
       const file = input?.files?.[0]
-      return file ? file.name : null
+      if (file) return file.name
+
+      /**
+       * The uploader having taken the file and emptied the input.
+       *
+       * Workday's dropzone reads the file, uploads it, and lists it by name
+       * beside the control; the input it came from is left empty. Reading only
+       * `input.files` then reports a refusal over a resume that is visibly
+       * attached, which is the read-back describing its own blind spot rather
+       * than the page.
+       */
+      const uploader = el.closest("[data-automation-id='attachments-FileUpload'], [class*='upload'], [class*='attachment']")
+      const listed = uploader?.textContent?.trim()
+
+      return listed && /\.(pdf|docx?|rtf|txt)\b/i.test(listed) ? listed : null
     }
 
     case "combobox":

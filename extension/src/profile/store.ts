@@ -85,6 +85,38 @@ export async function clearResume(): Promise<void> {
 }
 
 /**
+ * Record what a question means, straight to storage.
+ *
+ * Immediate rather than through the draft, for the same reason the resume is:
+ * teaching is already an explicit act, and a mapping that needed a separate
+ * Update press would be lost by everyone who taught it and carried on filling.
+ *
+ * Re-teaching the same question replaces the old mapping rather than stacking
+ * a second one behind it.
+ */
+export async function learnQuestion(entry: {
+  label: string
+  key: string
+  site: string
+}): Promise<Profile> {
+  const profile = await loadProfile()
+  const kept = profile.learned.filter((existing) => existing.label !== entry.label)
+
+  return patchProfile({
+    learned: [
+      ...kept,
+      { id: crypto.randomUUID(), createdAt: Date.now(), ...entry }
+    ]
+  })
+}
+
+export async function forgetQuestion(id: string): Promise<Profile> {
+  const profile = await loadProfile()
+
+  return patchProfile({ learned: profile.learned.filter((entry) => entry.id !== id) })
+}
+
+/**
  * Subscribe to profile changes so the drawer and the modal stay in sync when
  * both are open. Returns an unsubscribe function.
  */

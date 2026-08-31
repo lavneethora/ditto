@@ -55,7 +55,14 @@ function readBack(field: FieldSpec): string | null {
       // reject.
       if (!parts.year || !parts.month) return null
 
-      return parts.day ? `${parts.year}-${parts.month}-${parts.day}` : `${parts.year}-${parts.month}`
+      // Padded, because the widget drops a leading zero: a June written as
+      // "2026-06" reads back as "2026-6", and every date on the page was
+      // reported as refused over a one character difference in spelling.
+      const pad = (piece: string) => piece.padStart(2, "0")
+
+      return parts.day
+        ? `${parts.year}-${pad(parts.month)}-${pad(parts.day)}`
+        : `${parts.year}-${pad(parts.month)}`
     }
 
     case "select": {

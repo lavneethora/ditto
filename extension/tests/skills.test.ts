@@ -136,3 +136,40 @@ describe("reporting only what went in", () => {
     expect(outcome.kind === "wrote" && outcome.value).toBe("Python")
   })
 })
+
+describe("naming a value the way the site names it", () => {
+  it("reports the entry that landed, not the word asked for", async () => {
+    // A taxonomy renames what it is given. Reporting "Python" against a field
+    // reading "Python (Programming Language)" made the panel compare its own
+    // wording with the page's and call a correct box a mismatch.
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-uxi-widget-type="multiselect">
+         <input id="skills" type="text" placeholder="Search">
+         <ul role="listbox" data-automation-id="selectedItemList" id="chosen"></ul>
+         <ul role="listbox" id="menu">
+           <li role="option"><div>Python (Programming Language)</div></li>
+         </ul>
+       </div>`
+    )
+
+    const input = document.getElementById("skills") as HTMLInputElement
+    document.querySelector<HTMLElement>("#menu li")!.addEventListener("click", () => {
+      document
+        .getElementById("chosen")!
+        .insertAdjacentHTML(
+          "beforeend",
+          `<li><p data-automation-id="promptOption" data-automation-label="Python (Programming Language)">Python (Programming Language)</p></li>`
+        )
+      input.value = ""
+    })
+
+    const outcome = await fill(
+      { id: "s", el: input, kind: "combobox", label: "Skills", required: false } as FieldSpec,
+      { kind: "list", value: ["Python"] }
+    )
+
+    expect(outcome.kind === "wrote" && outcome.value).toBe("Python (Programming Language)")
+  })
+})

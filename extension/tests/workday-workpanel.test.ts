@@ -6,6 +6,7 @@ import { workday } from "~adapters"
 import { fill } from "~core/fill"
 import { match } from "~core/match"
 import { scan } from "~core/scan"
+import { verify } from "~core/verify"
 import type { FieldSpec } from "~core/types"
 
 /**
@@ -165,5 +166,42 @@ describe("counting panels in a section", () => {
 
     const work = workday.repeatables?.(document)?.find((s) => s.collection === "work")
     expect(work?.present).toBe(1)
+  })
+})
+
+describe("confirming what was written", () => {
+  /**
+   * All three reported live, all fields the user could see were filled while
+   * the panel called them refused. A read-back that describes its own blind
+   * spot rather than the page is worse than no read-back: it teaches the user
+   * to ignore the one report that is supposed to be trustworthy.
+   */
+
+  const dateGroup = () =>
+    document.querySelector<HTMLElement>("[data-automation-id='dateInputWrapper']")!
+
+  it("reads a split date back out of its boxes", async () => {
+    const field = byLabel("From")
+    await fill(field as FieldSpec, { kind: "text", value: "2024-06" })
+
+    // The group is a div, so reading .value off it returns undefined, and
+    // every From and To was reported as refused while showing the date.
+    expect(verify(field as FieldSpec, { kind: "wrote", value: "2024-06" }).status).toBe("filled")
+  })
+
+  it("still refuses a date that did not go in", async () => {
+    const field = byLabel("To")
+
+    expect(verify(field as FieldSpec, { kind: "wrote", value: "2024-06" }).status).toBe("error")
+  })
+
+  it("does not confirm from a half-written date", () => {
+    const group = dateGroup()
+    const month = group.querySelector<HTMLInputElement>("[data-automation-id='dateSectionMonth-input']")!
+    month.value = "06"
+
+    const field = byLabel("From")
+
+    expect(verify(field as FieldSpec, { kind: "wrote", value: "2024-06" }).status).toBe("error")
   })
 })

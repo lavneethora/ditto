@@ -68,8 +68,8 @@ const MAX_WAIT_MS = 1500
  * quickly, because nothing is coming without Enter.
  */
 const LIVE_FILTER_LOOK_MS = 1400
-const SEARCH_WAIT_MS = 3000
-const SEARCH_BUDGET_MS = 3800
+const SEARCH_WAIT_MS = 4500
+const SEARCH_BUDGET_MS = 7000
 
 /**
  * The share of a wait an UNREPLACED list may be treated as the answer after.
@@ -95,7 +95,17 @@ const SETTLE_GRACE_SHARE = 0.75
  * declared missing, and a profile with a few unusual skills pays it once per
  * skill, so it is capped well short of the search budget.
  */
-const EMPTY_SEARCH_WAIT_MS = 1800
+const EMPTY_SEARCH_WAIT_MS = 2500
+
+/**
+ * The least a second spelling is worth attempting with.
+ *
+ * Deliberately low. The alternate spellings are how "Next.js" finds the entry
+ * Workday files under "Nextjs", so blocking a retry costs a skill outright,
+ * where allowing a cramped one only costs time. Set high enough to stop a
+ * retry that could not possibly finish, and no higher.
+ */
+const MIN_RETRY_MS = 1200
 
 /**
  * The ceiling on one attempt at one value, across every phase.
@@ -106,7 +116,7 @@ const EMPTY_SEARCH_WAIT_MS = 1800
  * so, and a skills box tries a dozen of them. Success returns early, so this
  * only ever bites on failure.
  */
-const ATTEMPT_BUDGET_MS = 6000
+const ATTEMPT_BUDGET_MS = 10000
 
 /**
  * How long to wait, in total, for a click to show up in the control.
@@ -794,6 +804,20 @@ export async function selectFromCombobox(
       }
 
       if (choice) break
+
+      /**
+       * Only try another spelling if there is time to give it a fair one.
+       *
+       * Retrying is not free and it is not passive: it clears the box and
+       * types again, which throws away a search that may be moments from
+       * answering and starts the wait over. Reported live on the skills box,
+       * which erases and rewrites while the list is still populating and then
+       * has less time than before to read it.
+       *
+       * A cramped retry is worse than no retry. Better to spend what is left
+       * waiting on the query already in flight.
+       */
+      if (deadline - Date.now() < MIN_RETRY_MS) break
 
       /**
        * A different spelling is only worth trying when the search came back

@@ -106,10 +106,14 @@ function readBack(field: FieldSpec): string | null {
        * attached, which is the read-back describing its own blind spot rather
        * than the page.
        */
-      const uploader = el.closest("[data-automation-id='attachments-FileUpload'], [class*='upload'], [class*='attachment']")
-      const listed = uploader?.textContent?.trim()
+      const uploader = el.closest(
+        "[data-automation-id='attachments-FileUpload'], [data-field-path], [class*='upload'], [class*='attachment'], [class*='field']"
+      )
 
-      return listed && /\.(pdf|docx?|rtf|txt)\b/i.test(listed) ? listed : null
+      const listed = uploader?.textContent?.trim()
+      const named = listed?.match(/[^\s/\\]+\.(?:pdf|docx?|rtf|txt)\b/i)
+
+      return named ? named[0] : null
     }
 
     case "combobox":

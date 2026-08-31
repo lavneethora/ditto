@@ -209,12 +209,20 @@ const RULES: MatchRule[] = [
 
   { key: "eeo.hispanicLatino", allowOnQuestion: true, test: /\bhispanic\b|\blatino\b|\blatinx\b/, weight: 90 },
   { key: "eeo.disability", allowOnQuestion: true, test: /\bdisabilit(?:y|ies)\b|\bdisabled\b/, weight: 90 },
-  { key: "eeo.veteran", allowOnQuestion: true, test: /\bveteran\b|\bmilitary\s+service\b|\bprotected\s+veteran\b/, weight: 90 },
+  /**
+   * Plural, because forms write it either way and one of them was invisible.
+   *
+   * Workday's Voluntary Disclosures labels this "Veterans status". `\bveteran\b`
+   * cannot match "veterans": the boundary has to fall right after the n, and
+   * there is an s there. A required self-identification question was skipped
+   * for a missing letter.
+   */
+  { key: "eeo.veteran", allowOnQuestion: true, test: /\bveterans?\b|\bmilitary\s+service\b/, weight: 90 },
   { key: "eeo.pronouns", allowOnQuestion: true, test: /\bpronouns?\b/, weight: 100 },
   { key: "eeo.sexualOrientation", allowOnQuestion: true, test: /\bsexual\s+orientation\b/, weight: 100 },
   { key: "eeo.lgbtq", allowOnQuestion: true, test: /\blgbtq?\+?\b|\bqueer\b/, weight: 95 },
   { key: "eeo.gender", allowOnQuestion: true, test: /\bgender\b|\bsex\b/, weight: 80 },
-  { key: "eeo.race", allowOnQuestion: true, test: /\brace\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+group\b/, weight: 80 },
+  { key: "eeo.race", allowOnQuestion: true, test: /\braces?\b|\bethnicit(?:y|ies)\b|\bracial\b|\bethnic\s+groups?\b/, weight: 80 },
 
   // --- Names ----------------------------------------------------------------
 

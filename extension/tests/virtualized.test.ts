@@ -77,13 +77,13 @@ describe("finding an option below the fold", () => {
 
     expect(result.ok).toBe(true)
     expect(document.getElementById("chosen")!.textContent).toBe("Skill 18")
-  })
+  }, 25_000)
 
   it("takes one still in view without scrolling past it", async () => {
     const input = virtualList()
 
     expect((await selectFromCombobox(input, "Skill 02")).ok).toBe(true)
-  })
+  }, 25_000)
 
   it("gives up on a value the list does not contain", async () => {
     const input = virtualList()

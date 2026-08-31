@@ -116,6 +116,16 @@ const PANEL_WAIT_MS = 1200
  */
 const SETTLE_BEFORE_REASSERT_MS = 1200
 
+/**
+ * How far a chain of revealed questions may run.
+ *
+ * Not a guess about any particular form. These are the point at which a form
+ * is no longer asking follow-ups but rewriting itself, and Ditto should hand
+ * back what it has rather than keep going.
+ */
+const MAX_PASSES = 8
+const REVEAL_BUDGET_MS = 25_000
+
 /** An entry the user has actually filled in, rather than an empty row. */
 function hasContent(entry: Record<string, unknown>): boolean {
   return Object.entries(entry).some(
@@ -248,18 +258,34 @@ export async function autofill({
   const handledKeys = new Set<string>()
   const handledElements = new Set<Element>()
 
-  const identityOf = (el: Element) =>
-    el.getAttribute("id") || el.getAttribute("data-automation-id") || el.getAttribute("name") || ""
+  /**
+   * What makes this field this field, across a repaint.
+   *
+   * The site's own identifiers first, then the question itself. That last
+   * fallback is what makes an open-ended pass loop safe: a field with no id,
+   * on a form that replaces its nodes, looks brand new to element identity
+   * every time it is looked at, and the loop would keep refilling it and
+   * keep finding more to do.
+   */
+  const identityOf = (field: FieldSpec) => {
+    const el = field.el as Element
+    const published =
+      el.getAttribute("id") || el.getAttribute("data-automation-id") || el.getAttribute("name")
 
-  const alreadyDone = (el: Element) => {
-    const key = identityOf(el)
-    return key ? handledKeys.has(key) : handledElements.has(el)
+    if (published) return published
+
+    return field.label ? `${field.section ?? ""}|${field.label}|${field.repeatIndex ?? 0}` : ""
   }
 
-  const remember = (el: Element) => {
-    const key = identityOf(el)
+  const alreadyDone = (field: FieldSpec) => {
+    const key = identityOf(field)
+    return key ? handledKeys.has(key) : handledElements.has(field.el as Element)
+  }
+
+  const remember = (field: FieldSpec) => {
+    const key = identityOf(field)
     if (key) handledKeys.add(key)
-    else handledElements.add(el)
+    else handledElements.add(field.el as Element)
   }
 
   /**
@@ -284,6 +310,7 @@ export async function autofill({
 
   let queue = filesLast(scan(doc, adapter))
   let total = queue.length
+  const startedAt = Date.now()
 
   /**
    * Passes, because answering one field can create another.
@@ -294,21 +321,27 @@ export async function autofill({
    * shape turns up wherever a form asks a follow-up: a sponsorship question
    * that opens a date box, a "previously employed here" that asks when.
    *
-   * Bounded at three, because these follow-ups chain. Workday's export
-   * control screening asks about one list of countries, and the answer to
-   * that reveals a second, longer list. Two passes reach the first follow-up
-   * and stop one short of the second.
+   * Runs until the form stops producing questions, rather than to a fixed
+   * count. Any fixed count is a guess about how deep a particular form
+   * chains: Workday's export control screening goes three deep on its own
+   * (one country list reveals a longer one, which reveals a box asking which
+   * passports you hold), and there is no reason to believe three is the
+   * ceiling anywhere else.
    *
-   * Three rather than "until the DOM settles", which on a form that rewrites
-   * itself as you fill it risks not stopping at all. A pass that reveals
-   * nothing new costs one scan and exits, so the extra bound is only paid for
-   * when it is doing something.
+   * Safe to leave open because every field is remembered the moment it is
+   * picked up, whether or not it could be filled, so each scan returns strictly
+   * what the last one did not. The queue can only shrink to nothing.
+   *
+   * The two limits below are for a form that genuinely rewrites itself as it
+   * is filled, which would otherwise generate new questions forever. Hitting
+   * either is not a failure: everything filled so far still counts, and what
+   * is left is reported as needing the user.
    */
-  for (let pass = 0; pass < 3 && queue.length > 0; pass++) {
+  for (let pass = 0; pass < MAX_PASSES && queue.length > 0; pass++) {
     for (const field of queue) {
       if (shouldCancel?.()) break
 
-      remember(field.el as Element)
+      remember(field)
 
       const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter))
 
@@ -359,10 +392,14 @@ export async function autofill({
 
     if (shouldCancel?.()) break
 
+    // Long enough to have been generous. A form still revealing questions
+    // this far in is rewriting itself rather than asking follow-ups.
+    if (Date.now() - startedAt > REVEAL_BUDGET_MS) break
+
     // A question revealed by the answer above needs a beat to appear.
     await awaitFormSettled(doc)
 
-    queue = filesLast(scan(doc, adapter).filter((field) => !alreadyDone(field.el as Element)))
+    queue = filesLast(scan(doc, adapter).filter((field) => !alreadyDone(field)))
     total += queue.length
   }
 

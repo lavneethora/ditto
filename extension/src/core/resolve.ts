@@ -108,6 +108,49 @@ export function resolve(match: MatchResult, field: FieldSpec, profile: Profile):
     case "personal.hasPreferredName":
       return { kind: "boolean", value: invert ? !profile.personal.hasPreferredName : profile.personal.hasPreferredName }
 
+    /**
+     * Eligibility, read from the stored status rather than inferred.
+     *
+     * A form asking about citizenship and one asking "citizen, permanent
+     * resident, or protected person" are different questions. Each key below
+     * reads the same fact and answers only what it was asked. A status of
+     * "none of these", or none saved at all, answers nothing: it goes to the
+     * user, because a wrong answer here is a false statement on a legal
+     * document. See PRD 5.2.
+     */
+    case "eligibility.usCitizen":
+    case "eligibility.permanentResident":
+    case "eligibility.citizenOrResidentOrProtected": {
+      const status = profile.eligibility.status
+      if (status === null) return { kind: "none", reason: "No work status saved" }
+
+      const answer =
+        key === "eligibility.usCitizen"
+          ? status === "citizen"
+          : key === "eligibility.permanentResident"
+            ? status === "permanentResident"
+            : status === "citizen" || status === "permanentResident" || status === "protected"
+
+      return { kind: "boolean", value: invert ? !answer : answer }
+    }
+
+    case "eligibility.atLeast18": {
+      const answer = profile.eligibility.atLeast18
+      if (answer === null) return { kind: "none", reason: "Not answered in your profile" }
+
+      return { kind: "boolean", value: invert ? !answer : answer }
+    }
+
+    case "eligibility.residentOutsideUS": {
+      const answer = profile.eligibility.residentOutsideUS
+      if (answer === null) return { kind: "none", reason: "Not answered in your profile" }
+
+      return { kind: "boolean", value: invert ? !answer : answer }
+    }
+
+    case "eligibility.residentCountry":
+      return text(profile.eligibility.residentCountry, "country of residence")
+
     case "eeo.authorizedUS":
     case "eeo.requiresSponsorship":
     case "preferences.willingToRelocate": {

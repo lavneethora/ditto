@@ -2,7 +2,14 @@ import type { Profile } from "~profile/schema"
 
 import { fill } from "./fill"
 import { clickStructural, relocate } from "./fill/dom"
-import { isConsentQuestion, match } from "./match"
+import {
+  applySection,
+  isConsentQuestion,
+  match,
+  sectionKind,
+  type MatchResult
+} from "./match"
+import { recogniseUnmatched } from "./semantic"
 import { buildReport } from "./report"
 import { resolve, resolveUnmatched } from "./resolve"
 import type { Resolved } from "./resolve"
@@ -217,6 +224,25 @@ async function waitForGrowth(doc: Document, before: number): Promise<boolean> {
  * `npm run score` measures, since recognition is where an ATS redesign breaks
  * things first.
  */
+/**
+ * A semantic hit, in the shape the rest of the engine expects.
+ *
+ * Goes through applySection like every rule does, so a "start date" recognised
+ * inside an education block is that block's start date rather than a job's.
+ */
+function asMatch(
+  found: { key: ProfileKey; score: number; of: string } | undefined,
+  field: FieldSpec
+): MatchResult | null {
+  if (!found) return null
+
+  return {
+    key: applySection(found.key, sectionKind(field.section)),
+    invert: false,
+    rule: `similar to "${found.of}" (${found.score.toFixed(2)})`
+  }
+}
+
 export function analyze(doc: Document, adapter: Adapter): {
   fields: FieldSpec[]
   recognized: number
@@ -349,12 +375,31 @@ export async function autofill({
     let wroteThisPass = false
     const reveals = watchForReveals(doc)
 
+    /**
+     * One question for the whole pass, about the labels nothing else placed.
+     *
+     * Last, and only on what the rules and the user's own lessons left over,
+     * so it can add recognition and never take any away. Batched because the
+     * cost is one round trip and one model load rather than one per field.
+     *
+     * Its absence is not an error. If the model cannot load, this map is
+     * empty and the fill proceeds exactly as it did before the tier existed.
+     */
+    const byMeaning = await recogniseUnmatched(
+      queue.filter(
+        (field) =>
+          match(field, adapter.rules ?? [], adapter.key?.bind(adapter), profile.learned) === null
+      )
+    )
+
     for (const field of queue) {
       if (shouldCancel?.()) break
 
       remember(field)
 
-      const matched = match(field, adapter.rules ?? [], adapter.key?.bind(adapter), profile.learned)
+      const matched =
+        match(field, adapter.rules ?? [], adapter.key?.bind(adapter), profile.learned) ??
+        asMatch(byMeaning.get(field.id), field)
 
       /**
        * Consent is the user's to give, before anything else is considered.

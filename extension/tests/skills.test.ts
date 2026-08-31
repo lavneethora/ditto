@@ -110,3 +110,19 @@ describe("what a role description falls back to", () => {
     expect((document.getElementById("role") as HTMLTextAreaElement).value).toContain("Shipped")
   })
 })
+
+describe("tidying up after the last value", () => {
+  it("closes the menu the final skill left open", async () => {
+    // Not every exit is a successful commit, and only a commit closed up
+    // after itself. The last skill's results sat open over the rest of the
+    // form.
+    let escapes = 0
+    document.getElementById("skills")!.addEventListener("keydown", (event) => {
+      if ((event as KeyboardEvent).key === "Escape") escapes += 1
+    })
+
+    await fill(field(), { kind: "list", value: ["Python", "Rust"] })
+
+    expect(escapes).toBeGreaterThan(0)
+  })
+})

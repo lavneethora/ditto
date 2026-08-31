@@ -150,7 +150,13 @@ export function pickText(options: FieldOption[], value: string): FieldOption | n
 }
 
 /**
- * Words that qualify a name rather than change it.
+ * Words that say WHICH thing of this name, rather than naming another thing.
+ *
+ * Deliberately tiny. An earlier version of this list included "framework" and
+ * "library", and that is not a qualifier at all: "Python Frameworks" is a
+ * different skill from "Python (Programming Language)", and having it in here
+ * ranked it ABOVE the language, because the tail was shorter. Reported live on
+ * Python, Java and React.
  *
  * A skills taxonomy lists the language C as "C (Programming Language)" and
  * C++ as "C++ Programming Language", alongside "C design" and "C++ STL",
@@ -161,18 +167,7 @@ export function pickText(options: FieldOption[], value: string): FieldOption | n
  * "C++ STL" over "C++ Programming Language", because it took the first option
  * that started with the right characters and stopped looking.
  */
-const QUALIFIERS = new Set([
-  "programming",
-  "language",
-  "languages",
-  "development",
-  "software",
-  "framework",
-  "frameworks",
-  "library",
-  "libraries",
-  "general"
-])
+const QUALIFIERS = new Set(["programming", "language", "languages", "coding"])
 
 /**
  * How well one option answers the wanted value. Higher is better, 0 is no.
@@ -204,8 +199,18 @@ function score(text: string, wanted: string): number {
     return 500 - Math.min(rest.length, 99)
   }
 
+  /**
+   * The name ending in the wanted value, which is how a taxonomy writes an
+   * abbreviation: "Structured Query Language (SQL)".
+   *
+   * Ranked above a name that merely starts the same, because "SQL*Net" starts
+   * with SQL and is an unrelated product, while an entry ending in "(SQL)" is
+   * SQL under its full name.
+   */
+  if (text.endsWith(" " + wanted)) return 700
+
   // The wanted value appearing whole, somewhere inside a longer name.
-  if (text.includes(" " + wanted + " ") || text.endsWith(" " + wanted)) return 300
+  if (text.includes(" " + wanted + " ")) return 300
 
   /**
    * The option is shorter than what was asked for, and is a whole leading

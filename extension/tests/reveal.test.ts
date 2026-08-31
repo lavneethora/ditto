@@ -202,3 +202,106 @@ describe("when the resume goes in", () => {
     expect(order[order.length - 1]).toBe("resume")
   })
 })
+
+describe("saying the answers again", () => {
+  /**
+   * Some forms drop an answer they were given. Ashby rejected Preferred First
+   * Name as unanswered on one run and Email on the next, with a radio joining
+   * them on a third: the same fill, a different casualty each time.
+   *
+   * Re-reading is no help, because the DOM still shows the value. What was
+   * lost is the site's own record of it, so the only fix is to say it again.
+   */
+
+  it("types a text answer a second time", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-automation-id="applyFlowPage">
+         <div data-automation-id="formField-legalName--firstName">
+           <label for="a">First Name</label>
+           <input type="text" id="a" name="legalName--firstName">
+         </div>
+       </div>`
+    )
+
+    let writes = 0
+    document.getElementById("a")!.addEventListener("change", () => {
+      writes += 1
+    })
+
+    const base = emptyProfile()
+    await autofill({
+      doc: document,
+      adapter: workday,
+      profile: { ...base, personal: { ...base.personal, firstName: "Jordan" } } as never
+    })
+
+    expect(writes).toBe(2)
+    expect((document.getElementById("a") as HTMLInputElement).value).toBe("Jordan")
+  })
+
+  it("restores a value the form threw away after the fill", async () => {
+    // The failure this exists for, made deterministic.
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-automation-id="applyFlowPage">
+         <div data-automation-id="formField-legalName--firstName">
+           <label for="a">First Name</label>
+           <input type="text" id="a" name="legalName--firstName">
+         </div>
+       </div>`
+    )
+
+    const input = document.getElementById("a") as HTMLInputElement
+    let cleared = false
+
+    input.addEventListener("change", () => {
+      if (cleared) return
+      cleared = true
+      // A re-render lands a moment later and wipes what was just written.
+      setTimeout(() => {
+        input.value = ""
+      }, 50)
+    })
+
+    const base = emptyProfile()
+    await autofill({
+      doc: document,
+      adapter: workday,
+      profile: { ...base, personal: { ...base.personal, firstName: "Jordan" } } as never
+    })
+
+    expect(input.value).toBe("Jordan")
+  })
+
+  it("does not re-choose a dropdown", async () => {
+    // Re-choosing is slow, and on a control taking several values it would add
+    // a second copy rather than confirm the first.
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-automation-id="applyFlowPage">
+         <div data-automation-id="formField-country">
+           <label for="c">Country</label>
+           <button aria-haspopup="listbox" id="c" name="country">United States of America</button>
+         </div>
+       </div>`
+    )
+
+    let presses = 0
+    document.getElementById("c")!.addEventListener("click", () => {
+      presses += 1
+    })
+
+    const base = emptyProfile()
+    await autofill({
+      doc: document,
+      adapter: workday,
+      profile: { ...base, personal: { ...base.personal, country: "United States of America" } } as never
+    })
+
+    expect(presses).toBe(0)
+  })
+})

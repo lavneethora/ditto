@@ -182,6 +182,17 @@ export interface MatchRule {
    * and "What is your gender?"), so they have to work in both shapes.
    */
   allowOnQuestion?: boolean
+  /**
+   * How far into the label the match may start, in characters.
+   *
+   * For rules whose keyword is an ordinary word. "Please select the top three
+   * engineer profile types most relevant to your interests, skills and past
+   * experiences" is not a skills field, and "What is the location where you
+   * permanently reside?" is not a past job's location, but each contains the
+   * word its rule looks for. A label that is genuinely about a thing says so
+   * near the front; a label that merely mentions it says so late.
+   */
+  nearStart?: number
 }
 
 /** What a fill function is allowed to report. Note the absence of `filled`. */

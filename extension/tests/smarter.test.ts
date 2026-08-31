@@ -232,3 +232,22 @@ describe("a box asking what to call you", () => {
     expect(keyFor("Name")).toBe("personal.fullName")
   })
 })
+
+describe("a dated field whose block has no name", () => {
+  it("reads Start date year as an education start date", () => {
+    // Greenhouse labels an education row's field this and marks the block in
+    // no way the section resolver can see, so it matched nothing at all and a
+    // year the profile holds went unwritten.
+    expect(keyFor("Start date year")).toBe("education[].startDate")
+  })
+
+  it("reads it as the job's inside a work block", () => {
+    expect(keyFor("Start date year", { section: "Work Experience 1" })).toBe("work[].startDate")
+  })
+
+  it("still leaves an availability question alone", () => {
+    // A question, with no stored availability date behind it.
+    expect(keyFor("When can you start?")).toBeNull()
+    expect(keyFor("What is your earliest start date?")).toBeNull()
+  })
+})

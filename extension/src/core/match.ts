@@ -21,6 +21,11 @@ import type { FieldSpec, MatchRule, ProfileKey } from "./types"
 
 /** Keys whose stored value is a boolean, and therefore invertible. */
 export const BOOLEAN_KEYS: ReadonlySet<ProfileKey> = new Set([
+  "eligibility.usCitizen",
+  "eligibility.permanentResident",
+  "eligibility.citizenOrResidentOrProtected",
+  "eligibility.atLeast18",
+  "eligibility.residentOutsideUS",
   "personal.hasPreferredName",
   "work[].current",
   "eeo.authorizedUS",
@@ -185,6 +190,49 @@ const RULES: MatchRule[] = [
   // The disclosure toggle, not the name box. Deliberately narrow: a field
   // labelled just "Preferred Name" is a text input wanting a name, and must
   // keep falling through to the rules below it.
+  /**
+   * Eligibility. Every one is phrased as a question, so each opts in.
+   *
+   * The compound outranks the plain citizenship rule deliberately: a question
+   * listing citizen OR resident OR protected person contains the words "us
+   * citizen", and answering it as though it had asked only about citizenship
+   * would tell a green card holder to say no.
+   */
+  {
+    key: "eligibility.citizenOrResidentOrProtected",
+    test: /\b(?:any of the following|1324b|protected\s+person)\b|\bcitizen\b[^?]{0,80}\bpermanent\s+resident\b|\bpermanent\s+resident\b[^?]{0,80}\bprotected\b/,
+    weight: 120,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    key: "eligibility.residentOutsideUS",
+    test: /\bpermanent\s+resident\b[^?]{0,60}\boutside\s+(?:the\s+)?(?:us\b|u\.s\.|united\s+states)|\bin\s+a\s+country\s+outside\s+the\s+us\b/,
+    weight: 115,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    key: "eligibility.atLeast18",
+    test: /\bat\s+least\s+18\b|\b18\s+years\s+(?:of\s+age\s+)?or\s+older\b|\bare\s+you\s+(?:at\s+least\s+)?18\b|\bover\s+the\s+age\s+of\s+18\b/,
+    weight: 110,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    key: "eligibility.usCitizen",
+    test: /\b(?:u\.?\s?s\.?|united\s+states|american)\s+citizen(?:ship)?\b/,
+    weight: 100,
+    invert: false,
+    allowOnQuestion: true
+  },
+  {
+    key: "eligibility.permanentResident",
+    test: /\bpermanent\s+resident\b|\bgreen\s+card\b/,
+    weight: 95,
+    invert: false,
+    allowOnQuestion: true
+  },
   {
     key: "personal.hasPreferredName",
     test: /\b(?:i\s+have|do\s+you\s+have|use)\s+an?\s+preferred\s+name\b|\bi\s+have\s+a\s+preferred\s+name\b/,

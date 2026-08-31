@@ -1,5 +1,7 @@
 import { Storage } from "@plasmohq/storage"
 
+import { canonical } from "~core/label"
+
 import {
   ProfileSchema,
   ResumeSchema,
@@ -100,7 +102,8 @@ export async function learnQuestion(entry: {
   site: string
 }): Promise<Profile> {
   const profile = await loadProfile()
-  const kept = profile.learned.filter((existing) => existing.label !== entry.label)
+  const asked = canonical(entry.label)
+  const kept = profile.learned.filter((existing) => canonical(existing.label) !== asked)
 
   return patchProfile({
     learned: [

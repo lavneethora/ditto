@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
 import { fill } from "~core/fill"
+import { pickText } from "~core/fill/options"
 import { match } from "~core/match"
 import type { FieldSpec } from "~core/types"
 
@@ -187,5 +188,47 @@ describe("a Greenhouse application, label by label", () => {
     // one or more of the classifications of a protected veteran", and "I don't
     // wish to answer". A stored no must take the first, not the last.
     expect(keyFor("Veteran Status")).toBe("eeo.veteran")
+  })
+})
+
+describe("a degree written out in full", () => {
+  const options = (...labels: string[]) => labels.map((label) => ({ label, value: label }))
+
+  it("matches Bachelor of Science to a list of Bachelor's and Master's", () => {
+    // The certificate says "Bachelor of Science"; the dropdown says
+    // "Bachelor's". They share one word out of three and neither contains the
+    // other, so a required degree went unanswered.
+    expect(pickText(options("Bachelor's", "Master's", "PhD"), "Bachelor of Science")?.label).toBe(
+      "Bachelor's"
+    )
+  })
+
+  it("matches a master's the same way", () => {
+    expect(pickText(options("Bachelor's", "Master's"), "Master of Engineering")?.label).toBe(
+      "Master's"
+    )
+  })
+
+  it("prefers the exact wording when the list has it", () => {
+    const list = options("Bachelor's", "Bachelor of Science", "Master's")
+
+    expect(pickText(list, "Bachelor of Science")?.label).toBe("Bachelor of Science")
+  })
+
+  it("does not turn a bachelor's into a master's", () => {
+    expect(pickText(options("Master's", "PhD"), "Bachelor of Science")).toBeNull()
+  })
+})
+
+describe("a box asking what to call you", () => {
+  it("does not put the full legal name into Preferred Name", () => {
+    // Allowing "preferred" as a prefix on the full-name rule put
+    // "Lavneet Singh Pritpal Singh Hora" into a box asking what he goes by.
+    expect(keyFor("Preferred Name")).toBe("personal.preferredFirstName")
+  })
+
+  it("still reads Full Legal Name as the legal name", () => {
+    expect(keyFor("Full Legal Name")).toBe("personal.fullName")
+    expect(keyFor("Name")).toBe("personal.fullName")
   })
 })

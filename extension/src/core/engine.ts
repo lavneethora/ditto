@@ -1,7 +1,7 @@
 import type { Profile } from "~profile/schema"
 
 import { fill } from "./fill"
-import { clickStructural } from "./fill/dom"
+import { clickStructural, relocate } from "./fill/dom"
 import { isConsentQuestion, match } from "./match"
 import { buildReport } from "./report"
 import { resolve, resolveUnmatched } from "./resolve"
@@ -71,6 +71,14 @@ const MAX_ADDED_ENTRIES = 8
 
 /** How long to wait for a panel to appear after pressing Add. */
 const PANEL_WAIT_MS = 1200
+
+/**
+ * How long to let the form settle before saying the answers again.
+ *
+ * Long enough for the re-render that follows the last write, including the
+ * one a file attachment sets off.
+ */
+const SETTLE_BEFORE_REASSERT_MS = 700
 
 /** An entry the user has actually filled in, rather than an empty row. */
 function hasContent(entry: Record<string, unknown>): boolean {
@@ -235,6 +243,9 @@ export async function autofill({
     ...fields.filter((field) => field.kind === "file")
   ]
 
+  /** Everything Ditto wrote, in the order it wrote it. */
+  const landed: { field: FieldSpec; written: Resolved }[] = []
+
   let queue = filesLast(scan(doc, adapter))
   let total = queue.length
 
@@ -278,8 +289,12 @@ export async function autofill({
             // of snippets.
             resolveUnmatched(field, profile)
 
-      const attempt = await fill(field, siteSpelling(resolved, matched?.key, adapter))
+      const written = siteSpelling(resolved, matched?.key, adapter)
+      const attempt = await fill(field, written)
       const result = verify(field, attempt, matched?.key)
+
+      // Kept so the value can be reasserted once the form has settled.
+      if (attempt.kind === "wrote") landed.push({ field, written })
 
       results.push(result)
       onProgress?.(results.length, total, result)
@@ -295,5 +310,47 @@ export async function autofill({
     total += queue.length
   }
 
+  if (!shouldCancel?.()) await reassert(landed)
+
   return buildReport({ ats: adapter.name, results, fieldsFound: total })
+}
+
+/**
+ * Write the simple answers a second time, once the form has stopped moving.
+ *
+ * Some forms drop an answer they were given. Ashby rejected Preferred First
+ * Name as unanswered on one run and Email on the next, with a radio joining
+ * them on a third: the same fill, a different casualty each time, which is a
+ * race rather than a broken field. Re-reading is no help, because the DOM
+ * still shows the value; what was lost is the site's own record of it.
+ *
+ * So this does not check anything. It says it again, after everything else has
+ * finished and the last re-render has had time to land, on the controls where
+ * saying it twice is free: typing into a box and pressing a radio that is
+ * already pressed both leave exactly the state they found.
+ *
+ * Dropdowns and files are left alone. Re-choosing an option is slow, and on a
+ * control that accepts several values it would add a second copy rather than
+ * confirm the first.
+ */
+async function reassert(landed: { field: FieldSpec; written: Resolved }[]): Promise<void> {
+  const repeatable = landed.filter(({ field }) =>
+    ["text", "textarea", "date", "month", "radiogroup", "checkbox"].includes(field.kind)
+  )
+
+  if (repeatable.length === 0) return
+
+  await new Promise((done) => setTimeout(done, SETTLE_BEFORE_REASSERT_MS))
+
+  for (const { field, written } of repeatable) {
+    const el = relocate(field.el as Element)
+    if (!el) continue
+
+    try {
+      await fill({ ...field, el: el as FieldSpec["el"] }, written)
+    } catch {
+      // A field that has since become unfillable is not worth failing over:
+      // the report already said what happened the first time.
+    }
+  }
 }

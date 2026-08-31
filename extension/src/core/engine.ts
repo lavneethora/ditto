@@ -8,7 +8,7 @@ import { resolve, resolveUnmatched } from "./resolve"
 import type { Resolved } from "./resolve"
 import { scan } from "./scan"
 import type { Adapter, FieldSpec, FillReport, FillResult, ProfileKey, RepeatableSection } from "./types"
-import { verify } from "./verify"
+import { settleFile, verify } from "./verify"
 
 /**
  * The autofill pass: scan, match, resolve, fill, verify, report.
@@ -291,6 +291,17 @@ export async function autofill({
 
       const written = siteSpelling(resolved, matched?.key, adapter)
       const attempt = await fill(field, written)
+
+      /**
+       * An uploader gets a moment before it is judged.
+       *
+       * Greenhouse removes the file input the instant the change event
+       * returns and paints the chip naming the file about 300ms later, so
+       * verifying immediately reads the gap between the two and reports a
+       * resume that is on its way as one the form refused.
+       */
+      if (field.kind === "file" && attempt.kind === "wrote") await settleFile(field)
+
       const result = verify(field, attempt, matched?.key)
 
       // Kept so the value can be reasserted once the form has settled.

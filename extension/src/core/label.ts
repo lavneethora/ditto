@@ -112,6 +112,127 @@ export function singularize(text: string): string {
 }
 
 /**
+ * The same thing, said differently.
+ *
+ * Every entry rewrites a phrasing a form actually uses into the one the rules
+ * are written in. It is the same idea as the singulariser above and solves the
+ * other half of the problem: that half was morphology, this half is vocabulary.
+ * A form says "Alma Mater" and the rule says "school"; nothing about the
+ * spelling connects them, and adding a regex per phrasing does not converge
+ * because there is always another form.
+ *
+ * Longest phrases first, so "family name" is rewritten before "name".
+ *
+ * What this is not: it does not understand a question, it recognises a
+ * wording. A genuinely novel paraphrase still needs an entry here, and still
+ * goes to the user until it has one. That is the right failure: a field the
+ * user fills themselves costs them a moment, and a field filled from a guess
+ * about what a question meant can put a wrong answer on an application.
+ */
+const SYNONYMS: ReadonlyArray<readonly [string, string]> = [
+  // Names
+  ["family name", "last name"],
+  ["surname", "last name"],
+  ["given name", "first name"],
+  ["forename", "first name"],
+  ["christian name", "first name"],
+  ["legal name", "full name"],
+  ["goes by", "preferred name"],
+  ["known as", "preferred name"],
+  ["nickname", "preferred name"],
+
+  // Contact
+  ["e mail", "email"],
+  ["telephone", "phone"],
+  ["cellular", "phone"],
+  ["cell phone", "phone"],
+  ["mobile number", "phone"],
+  ["mobile", "phone"],
+  ["contact number", "phone"],
+  ["zip code", "postal code"],
+  ["zip", "postal code"],
+  ["post code", "postal code"],
+  ["postcode", "postal code"],
+  ["linked in", "linkedin"],
+
+  // Education
+  ["alma mater", "school"],
+  ["educational institution", "school"],
+  ["academic institution", "school"],
+  ["institution attended", "school"],
+  ["field of study", "major"],
+  ["course of study", "major"],
+  ["area of study", "major"],
+  ["subject studied", "major"],
+  ["qualification", "degree"],
+  ["graduation year", "graduation date"],
+
+  // Work
+  ["employer", "company"],
+  ["organisation you work for", "company"],
+  ["position title", "job title"],
+  ["role title", "job title"],
+  ["job function", "job title"],
+  ["commencement date", "start date"],
+  ["date of joining", "start date"],
+  ["date joined", "start date"],
+  ["date left", "end date"],
+  ["leaving date", "end date"],
+
+  // Money
+  ["remuneration", "salary"],
+  ["compensation expectation", "salary expectation"],
+  ["expected pay", "expected salary"],
+  ["desired compensation", "desired salary"],
+  ["pay expectation", "salary expectation"],
+
+  // Equal employment
+  ["ethnic background", "ethnicity"],
+  ["racial background", "ethnicity"],
+  ["racial identity", "ethnicity"],
+  ["heritage", "ethnicity"],
+  ["ancestry", "ethnicity"],
+  ["gender identity", "gender"],
+  ["armed forces", "military"],
+  ["service member", "military"],
+  ["servicemember", "military"],
+  ["differently abled", "disability"],
+  ["long term health condition", "disability"],
+
+  // Eligibility
+  ["nationality", "citizenship"],
+  ["right to work", "authorized to work"],
+  ["eligible to work", "authorized to work"],
+  ["work permit", "work authorization"],
+  ["visa sponsorship", "sponsorship"],
+  ["immigration sponsorship", "sponsorship"],
+  ["non compete", "noncompete"],
+  ["non solicitation", "noncompete"],
+  ["non solicit", "noncompete"],
+  ["restrictive covenant", "noncompete"],
+
+  // Documents
+  ["curriculum vitae", "resume"],
+  ["cv", "resume"]
+]
+
+/**
+ * The label with known phrasings rewritten into the ones the rules use.
+ *
+ * Applied only when nothing matched as written, so it can turn a miss into a
+ * hit and never change an answer that was already correct.
+ */
+export function normalizeWording(text: string): string {
+  let out = ` ${text} `
+
+  for (const [from, to] of SYNONYMS) {
+    out = out.split(` ${from} `).join(` ${to} `)
+  }
+
+  return out.trim().replace(/\s+/g, " ")
+}
+
+/**
  * Visible text of an element, excluding nested form controls.
  *
  * A wrapping `<label>` often contains the input itself plus its options, and

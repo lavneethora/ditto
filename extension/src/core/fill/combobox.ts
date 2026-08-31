@@ -45,8 +45,21 @@ const MAX_WAIT_MS = 1500
  * separately because a value like "Lubbock, Texas" is tried as two queries,
  * and a field that cannot be filled must not take eight seconds to say so.
  */
-const SEARCH_WAIT_MS = 2000
-const SEARCH_BUDGET_MS = 2800
+/**
+ * Measured on a live Workday skills box, in the browser.
+ *
+ * Typing alone never searches: the list reads "No Items." for as long as you
+ * care to wait. Enter runs it, the menu unmounts for about a tenth of a
+ * second, and the results land at two seconds.
+ *
+ * So the look before Enter is deliberately brief. It exists only for boxes
+ * that filter as you type, like Lever's location typeahead, which must not be
+ * sent an Enter it did not ask for. Spending the search budget there is what
+ * left too little for the search that had not been asked for yet.
+ */
+const LIVE_FILTER_LOOK_MS = 400
+const SEARCH_WAIT_MS = 3000
+const SEARCH_BUDGET_MS = 3800
 
 /**
  * How long a stable list is given to turn out to be stale.
@@ -67,7 +80,7 @@ const SETTLE_GRACE_MS = 1200
  * so, and a skills box tries a dozen of them. Success returns early, so this
  * only ever bites on failure.
  */
-const ATTEMPT_BUDGET_MS = 4500
+const ATTEMPT_BUDGET_MS = 6000
 
 /**
  * How long to wait, in total, for a click to show up in the control.
@@ -624,7 +637,7 @@ export async function selectFromCombobox(
       // The box's own search first, for the ones that filter as you type.
       // Lever's location typeahead is one of those and must not be sent an
       // Enter it did not ask for.
-      options = await waitForResults(doc, input, wanted, Math.min(SEARCH_WAIT_MS, left), stale)
+      options = await waitForResults(doc, input, wanted, Math.min(LIVE_FILTER_LOOK_MS, left), stale)
       choice = pickAmong(options, wanted)
 
       /**
@@ -645,7 +658,13 @@ export async function selectFromCombobox(
         pressKey(input, "Enter", 13)
         searchRanOnEnter = true
 
-        options = await waitForResults(doc, input, wanted, Math.max(0, deadline - Date.now()), stale)
+        options = await waitForResults(
+          doc,
+          input,
+          wanted,
+          Math.min(SEARCH_WAIT_MS, Math.max(0, deadline - Date.now())),
+          stale
+        )
         choice = pickAmong(options, wanted)
       }
 

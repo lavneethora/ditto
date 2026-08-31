@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react"
 
 import type { Adapter, FieldSpec, FillReport, FillResult } from "~core/types"
 import { analyze, autofill } from "~core/engine"
+import { canonical } from "~core/label"
 import { actionableItems, summaryLine } from "~core/report"
 import { describeResume } from "~profile/resume"
 import { Wordmark } from "~ui/Logo"
@@ -26,7 +27,7 @@ const DRAWER_WIDTH = 380
 
 export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
   const profileState = useProfile()
-  const { profile } = profileState
+  const { profile, teach } = profileState
 
   const [collapsed, setCollapsed] = useState(false)
   const [showProfile, setShowProfile] = useState(false)
@@ -148,6 +149,23 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
       ;(target as HTMLElement).focus?.({ preventScroll: true })
     },
     [doc, survey.fields]
+  )
+
+  /**
+   * Record what a question means, then fill again.
+   *
+   * Filling again rather than just this one field: the mapping is stored, a
+   * re-run is idempotent, and it is one click instead of two. Ditto never
+   * submits, so running it twice costs nothing but a moment.
+   */
+  const learn = useCallback(
+    async (result: FillResult, key: string) => {
+      if (!result.label) return
+
+      await teach(canonical(result.label), key, doc.location?.host ?? "")
+      void start()
+    },
+    [doc, start, teach]
   )
 
   /**
@@ -284,7 +302,12 @@ export function Drawer({ adapter, doc }: { adapter: Adapter; doc: Document }) {
                   used to sit under their own heading, which read as handled
                   when they are really just empty. Each row keeps its own mark,
                   so why it is there is still visible. */}
-              <ResultGroup title="Needs you" results={actionableItems(report)} onReveal={reveal} />
+              <ResultGroup
+                title="Needs you"
+                results={actionableItems(report)}
+                onReveal={reveal}
+                onTeach={learn}
+              />
               <ResultGroup title="Filled" results={report.filled} onReveal={reveal} />
             </>
           )}

@@ -137,6 +137,34 @@ const UPLOADER =
  * does not work here: the only label pointing at Greenhouse's resume input
  * reads "Attach", and that word disappears along with the button.
  */
+/**
+ * Wait for an uploader to show the file, before asking whether it did.
+ *
+ * Measured on the live Greenhouse form, sampling the DOM after the change
+ * event:
+ *
+ *   at the instant change returns   input gone, block reads "Resume/CV*"
+ *   +320ms                          block reads "Resume/CV* <filename>"
+ *
+ * The input is torn out synchronously and the chip naming the file is painted
+ * a beat later, so verification ran inside a window where there was genuinely
+ * nothing to find. Every lookup was returning the right answer about the
+ * wrong moment, and the user got "wrote the value but the field did not
+ * accept it" over a resume that was seconds from appearing.
+ *
+ * Polls rather than waits a fixed time, so the common case stays fast and a
+ * slow upload still gets its chance. Returning without a filename is not a
+ * verdict: verify reads the DOM again afterwards and decides.
+ */
+export async function settleFile(field: FieldSpec, budgetMs = 4000): Promise<void> {
+  const deadline = Date.now() + budgetMs
+
+  while (Date.now() < deadline) {
+    if (readAttachedFile(field, relocate(field.el))) return
+    await new Promise((done) => setTimeout(done, 100))
+  }
+}
+
 function readAttachedFile(field: FieldSpec, el: Element | null): string | null {
   if (el instanceof HTMLInputElement && el.files?.[0]) return el.files[0].name
 

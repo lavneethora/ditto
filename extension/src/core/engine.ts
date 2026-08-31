@@ -5,8 +5,9 @@ import { clickStructural } from "./fill/dom"
 import { match } from "./match"
 import { buildReport } from "./report"
 import { resolve, resolveUnmatched } from "./resolve"
+import type { Resolved } from "./resolve"
 import { scan } from "./scan"
-import type { Adapter, FieldSpec, FillReport, FillResult, RepeatableSection } from "./types"
+import type { Adapter, FieldSpec, FillReport, FillResult, ProfileKey, RepeatableSection } from "./types"
 import { verify } from "./verify"
 
 /**
@@ -28,6 +29,30 @@ export interface AutofillOptions {
   onProgress?: (done: number, total: number, latest: FillResult) => void
   /** Checked between fields so the user can cancel a run in flight. */
   shouldCancel?: () => boolean
+}
+
+/**
+ * The value as the site would spell it, where the adapter knows.
+ *
+ * Applied here rather than inside the dropdown driver, so the driver stays
+ * ignorant of which site it is on and every field gets the same treatment.
+ * Anything the adapter has no name for passes through untouched.
+ */
+function siteSpelling(resolved: Resolved, key: ProfileKey | undefined, adapter: Adapter): Resolved {
+  if (!adapter.alias || !key) return resolved
+
+  if (resolved.kind === "text") {
+    return { ...resolved, value: adapter.alias(resolved.value, key) ?? resolved.value }
+  }
+
+  if (resolved.kind === "list") {
+    return {
+      ...resolved,
+      value: resolved.value.map((item) => adapter.alias?.(item, key) ?? item)
+    }
+  }
+
+  return resolved
 }
 
 /** Lets the browser paint and lets React commit before the next write. */
@@ -223,7 +248,7 @@ export async function autofill({
         ? resolve(matched, field, profile)
         : resolveUnmatched(field, profile)
 
-      const attempt = await fill(field, resolved)
+      const attempt = await fill(field, siteSpelling(resolved, matched?.key, adapter))
       const result = verify(field, attempt, matched?.key)
 
       results.push(result)

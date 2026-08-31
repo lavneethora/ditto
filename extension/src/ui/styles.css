@@ -1081,3 +1081,17 @@
   margin-bottom: 2px;
   overflow-wrap: anywhere;
 }
+
+/**
+ * Which layer answered a field, on the rows where it is worth knowing.
+ *
+ * Quieter than the value itself. A field recognised by meaning rather than by
+ * a rule is a guess, and the user should be able to see which ones to check
+ * without the panel shouting about it.
+ */
+.ditto-row-via {
+  display: block;
+  margin-top: 2px;
+  font-size: 11px;
+  color: var(--ditto-text-faint);
+}

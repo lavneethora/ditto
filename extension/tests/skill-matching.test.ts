@@ -76,3 +76,54 @@ describe("what the qualifier rule does not do", () => {
     expect(pickText(options("Python", "Ruby", "Go"), "Ruby")?.label).toBe("Ruby")
   })
 })
+
+describe("a name and a different thing built on it", () => {
+  /**
+   * All reported live, and all caused by my own qualifier list: it included
+   * "framework" and "library", which do not say WHICH Python, they name a
+   * different skill. Having them in there ranked "Python Frameworks" above
+   * "Python (Programming Language)", because the tail was shorter.
+   */
+
+  it("takes the language Python, not Python frameworks", () => {
+    const list = options("Python Frameworks", "Python (Programming Language)", "Python Numpy")
+
+    expect(pickText(list, "Python")?.label).toBe("Python (Programming Language)")
+  })
+
+  it("takes the language Java, not Java frameworks", () => {
+    const list = options("Java Frameworks", "Java (Programming Language)")
+
+    expect(pickText(list, "Java")?.label).toBe("Java (Programming Language)")
+  })
+
+  it("takes React.js, not the ReAct framework", () => {
+    // Different capitalisation, different thing, and canonicalising makes them
+    // look identical up to the space.
+    const list = options("ReAct Framework", "React.js")
+
+    expect(pickText(list, "React")?.label).toBe("React.js")
+  })
+})
+
+describe("a name written out in full", () => {
+  it("takes SQL under its full name, not SQL*Net", () => {
+    // A taxonomy writes an abbreviation as "Full Name (ABBR)". SQL*Net starts
+    // with SQL and is an unrelated product.
+    const list = options("SQL*Net", "Structured Query Language (SQL)", "SQL Server")
+
+    expect(pickText(list, "SQL")?.label).toBe("Structured Query Language (SQL)")
+  })
+
+  it("still prefers the plain entry when there is one", () => {
+    const list = options("Structured Query Language (SQL)", "SQL")
+
+    expect(pickText(list, "SQL")?.label).toBe("SQL")
+  })
+
+  it("prefers the qualified language over the spelled-out form", () => {
+    const list = options("Structured Query Language (SQL)", "SQL (Programming Language)")
+
+    expect(pickText(list, "SQL")?.label).toBe("SQL (Programming Language)")
+  })
+})

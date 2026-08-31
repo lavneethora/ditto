@@ -40,6 +40,77 @@ export function canonical(raw: string): string {
     .trim()
 }
 
+
+/**
+ * Words that look plural and are not.
+ *
+ * Every one of these ends in a letter pattern the rules below would strip,
+ * and every one of them turns up in a form label.
+ */
+const NOT_PLURAL = new Set([
+  "status",
+  "address",
+  "business",
+  "gas",
+  "campus",
+  "bonus",
+  "previous",
+  "various",
+  "us",
+  "this",
+  "his",
+  "is",
+  "as",
+  "was",
+  "has",
+  "less",
+  "plus",
+  "yes",
+  "class",
+  "process",
+  "access",
+  "progress",
+  "series"
+])
+
+/** The singular of one word, or the word unchanged. */
+function singularWord(word: string): string {
+  if (word.length <= 3 || NOT_PLURAL.has(word)) return word
+  if (!word.endsWith("s")) return word
+
+  // "companies" -> "company", "disabilities" -> "disability"
+  if (word.endsWith("ies")) return word.slice(0, -3) + "y"
+
+  // "addresses" -> "address", "boxes" -> "box", "watches" -> "watch"
+  if (/(?:ss|x|z|ch|sh)es$/.test(word)) return word.slice(0, -2)
+
+  // "business", "status", "analysis" keep their endings.
+  if (/(?:ss|us|is)$/.test(word)) return word
+
+  return word.slice(0, -1)
+}
+
+/**
+ * A phrase with each word reduced to its singular.
+ *
+ * Not for display and not for comparison between two pieces of page text.
+ * This exists so a rule written once can recognise a label however the form
+ * happened to pluralise it.
+ *
+ * The alternative was noticing each plural as a user hits it, one regex at a
+ * time. Workday labels its veteran question "Veterans status", and `\bveteran\b`
+ * cannot match "veterans" because the word boundary has to fall right after
+ * the n. A required legal self-identification was skipped over one letter,
+ * and there is no reason to think that is the last such letter.
+ *
+ * Deliberately crude. It only has to make a rule reachable, and anything it
+ * gets wrong produces a string no rule matches, which is where the label
+ * already was.
+ */
+export function singularize(text: string): string {
+  return text.split(" ").map(singularWord).join(" ")
+}
+
 /**
  * Visible text of an element, excluding nested form controls.
  *

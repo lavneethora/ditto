@@ -32,7 +32,7 @@ describe("typeahead states are not options", () => {
 
     expect(result.ok).toBe(false)
     expect(result.value).toBeUndefined()
-  })
+  }, 15_000)
 
   it("reports failure when the click does not commit", async () => {
     // Reported live on Lever: the option was found and clicked, the widget

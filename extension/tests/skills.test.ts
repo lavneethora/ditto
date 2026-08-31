@@ -126,3 +126,13 @@ describe("tidying up after the last value", () => {
     expect(escapes).toBeGreaterThan(0)
   })
 })
+
+describe("reporting only what went in", () => {
+  it("does not list a value the box does not hold", async () => {
+    // Reported live: FastAPI was listed as written while the field plainly
+    // did not contain it. The control is the only authority on its contents.
+    const outcome = await fill(field(), { kind: "list", value: ["Python", "Cobol"] })
+
+    expect(outcome.kind === "wrote" && outcome.value).toBe("Python")
+  })
+})

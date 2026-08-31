@@ -73,7 +73,7 @@ export interface MatchResult {
 /** Which repeated block a field sits in, used to disambiguate shared labels. */
 type SectionKind = "education" | "work" | "eeo" | "phone" | undefined
 
-function sectionKind(section: string | undefined): SectionKind {
+export function sectionKind(section: string | undefined): SectionKind {
   if (!section) return undefined
 
   const s = canonical(section)
@@ -874,7 +874,7 @@ const DISQUALIFIERS: Partial<Record<ProfileKey, RegExp>> = {
  * is common and harmless. This only rewrites keys where the section is
  * unambiguous and the key is a repeatable one.
  */
-function applySection(key: ProfileKey, section: SectionKind): ProfileKey {
+export function applySection(key: ProfileKey, section: SectionKind): ProfileKey {
   // A "Country" control inside a phone fieldset is the dialling code, not a
   // mailing address. Greenhouse ships exactly this: a react-select labelled
   // "Country" nested inside `<fieldset class="phone-input"><legend>Phone`.

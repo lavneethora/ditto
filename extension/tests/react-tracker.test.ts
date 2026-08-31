@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
-import { setNativeValue, typeSequentially } from "~core/fill/dom"
+import { setNativeValue, typeInto, typeSequentially } from "~core/fill/dom"
 
 /**
  * React's value tracker.
@@ -91,5 +91,70 @@ describe("making a write visible to React", () => {
 
     expect(() => setNativeValue(plain, "hello")).not.toThrow()
     expect(plain.value).toBe("hello")
+  })
+})
+
+describe("typing a value out rather than setting it", () => {
+  /**
+   * Confirmed on a live Ashby form: the value landed in the DOM and in
+   * React's own props, and the form still rejected the field as empty on
+   * submit. Clicking into it, typing one character and deleting it cleared
+   * the error, so what the site records an answer from is the act of typing,
+   * not the value that ends up there.
+   */
+
+  it("sends a keystroke per character", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML("afterbegin", `<input id="q" type="text">`)
+    const input = document.getElementById("q") as HTMLInputElement
+
+    const keys: string[] = []
+    input.addEventListener("keydown", (e) => keys.push((e as KeyboardEvent).key))
+
+    await typeInto(input, "Hora")
+
+    expect(keys).toEqual(["H", "o", "r", "a"])
+    expect(input.value).toBe("Hora")
+  })
+
+  it("still finishes with change and blur", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML("afterbegin", `<input id="q" type="text">`)
+    const input = document.getElementById("q") as HTMLInputElement
+
+    const seen: string[] = []
+    for (const type of ["input", "change", "blur"]) {
+      input.addEventListener(type, () => seen.push(type))
+    }
+
+    await typeInto(input, "Hi")
+
+    expect(seen.filter((t) => t === "input").length).toBeGreaterThan(1)
+    expect(seen).toContain("change")
+    expect(seen[seen.length - 1]).toBe("blur")
+  })
+
+  it("types into a textarea too", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML("afterbegin", `<textarea id="t"></textarea>`)
+    const area = document.getElementById("t") as HTMLTextAreaElement
+
+    await typeInto(area, "Built the thing")
+
+    expect(area.value).toBe("Built the thing")
+  })
+
+  it("is not slow about a long value", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML("afterbegin", `<textarea id="t"></textarea>`)
+    const area = document.getElementById("t") as HTMLTextAreaElement
+
+    // No delay between characters: the events are what matter, and pacing is
+    // only needed for a search box that debounces a query.
+    const started = Date.now()
+    await typeInto(area, "x".repeat(600))
+
+    expect(Date.now() - started).toBeLessThan(2000)
+    expect(area.value).toHaveLength(600)
   })
 })

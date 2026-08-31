@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 
-import { singularize } from "~core/label"
+import { normalizeWording, singularize } from "~core/label"
 import { match } from "~core/match"
 import type { FieldSpec } from "~core/types"
 
@@ -78,5 +78,62 @@ describe("the singulariser knows what is not a plural", () => {
     expect(singularize("addresses")).toBe("address")
     expect(singularize("veterans")).toBe("veteran")
     expect(singularize("disabilities")).toBe("disability")
+  })
+})
+
+describe("the same question, paraphrased", () => {
+  /**
+   * Vocabulary rather than morphology. "Alma Mater" and "School" share no
+   * letters, so no amount of stemming connects them, and adding a regex per
+   * phrasing does not converge because there is always another form.
+   */
+  for (const [reworded, key] of [
+    ["Alma Mater", "education[].school"],
+    ["Family Name", "personal.lastName"],
+    ["Given Name", "personal.firstName"],
+    ["Surname", "personal.lastName"],
+    ["Nickname", "personal.preferredFirstName"],
+    ["Mobile Number", "personal.phone"],
+    ["Telephone", "personal.phone"],
+    ["Zip Code", "personal.postalCode"],
+    ["Postcode", "personal.postalCode"],
+    ["Field of Study", "education[].major"],
+    ["Qualification", "education[].degree"],
+    ["Employer", "work[].company"],
+    ["Position Title", "work[].title"],
+    ["Remuneration", "preferences.desiredSalary"],
+    ["Ethnic Background", "eeo.race"],
+    ["Gender Identity", "eeo.gender"],
+    ["Nationality", "eligibility.citizenships"],
+    ["Curriculum Vitae", "resume"],
+    ["Do you have the right to work in the US?", "eeo.authorizedUS"],
+    ["Will you require visa sponsorship?", "eeo.requiresSponsorship"],
+    ["Are you bound by a restrictive covenant?", "eligibility.boundByAgreements"]
+  ] as const) {
+    it(`recognises "${reworded}"`, () => {
+      expect(keyFor(reworded)).toBe(key)
+    })
+  }
+
+  it("handles a label that is reworded AND pluralised", () => {
+    // Neither normalisation reaches these alone.
+    expect(keyFor("Alma Maters")).toBe("education[].school")
+    expect(keyFor("Ethnic Backgrounds")).toBe("eeo.race")
+    expect(keyFor("Employers")).toBe("work[].company")
+  })
+
+  it("rewrites the longest phrase first", () => {
+    // "family name" has to be rewritten before "name" gets a chance.
+    expect(normalizeWording("family name")).toBe("last name")
+    expect(normalizeWording("given name")).toBe("first name")
+  })
+
+  it("does not rewrite a word inside another word", () => {
+    // "cv" is a synonym for resume; "cvs" and "mcv" are not.
+    expect(normalizeWording("mcv level")).toBe("mcv level")
+  })
+
+  it("changes nothing when there is nothing to change", () => {
+    expect(normalizeWording("first name")).toBe("first name")
   })
 })

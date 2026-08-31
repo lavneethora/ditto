@@ -218,7 +218,11 @@ async function selectMany(el: HTMLElement, values: string[]): Promise<AttemptOut
     }
   }
 
-  return { kind: "wrote", value: added.join(", ") }
+  return {
+    kind: "wrote",
+    value: added.join(", "),
+    note: refused.length > 0 ? `not offered here: ${refused.join(", ")}` : undefined
+  }
 }
 
 /**

@@ -149,3 +149,56 @@ describe("a form that replaces its inputs as you fill it", () => {
     expect((document.getElementById("pref--first") as HTMLInputElement).value).toBe("Jo")
   })
 })
+
+describe("when the resume goes in", () => {
+  /**
+   * Attaching a file makes a site re-render, sometimes a beat later and
+   * sometimes across the whole form, and whatever was filled in the moments
+   * after it can be reset while the DOM keeps showing the text. On Ashby the
+   * resume sits third in the form and Preferred First Name fifth, and that
+   * field kept coming back as unanswered on submit while its neighbours
+   * passed.
+   */
+
+  it("is the last thing filled, whatever order the form puts it in", async () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-automation-id="applyFlowPage">
+         <div data-automation-id="formField-legalName--firstName">
+           <label for="a">First Name</label>
+           <input type="text" id="a" name="legalName--firstName">
+         </div>
+         <div data-automation-id="formField-resume">
+           <label for="r">Resume</label>
+           <input type="file" id="r" name="resume">
+         </div>
+         <div data-automation-id="formField-legalName--lastName">
+           <label for="b">Last Name</label>
+           <input type="text" id="b" name="legalName--lastName">
+         </div>
+       </div>`
+    )
+
+    const order: string[] = []
+    for (const id of ["a", "b"]) {
+      document.getElementById(id)!.addEventListener("input", () => {
+        if (!order.includes(id)) order.push(id)
+      })
+    }
+    document.getElementById("r")!.addEventListener("change", () => order.push("resume"))
+
+    const base = emptyProfile()
+    await autofill({
+      doc: document,
+      adapter: workday,
+      profile: {
+        ...base,
+        personal: { ...base.personal, firstName: "Jordan", lastName: "Reyes" },
+        resume: { filename: "cv.pdf", type: "application/pdf", size: 12, data: "AAAA" }
+      } as never
+    })
+
+    expect(order[order.length - 1]).toBe("resume")
+  })
+})

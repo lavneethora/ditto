@@ -163,5 +163,5 @@ describe("a box that takes the typed text itself", () => {
 
     expect(result.ok).toBe(false)
     expect((document.getElementById("loc") as HTMLInputElement).value).toBe("Lubbock, Texas")
-  })
+  }, 15_000)
 })

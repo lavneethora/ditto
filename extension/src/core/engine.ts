@@ -218,7 +218,24 @@ export async function autofill({
     else handledElements.add(el)
   }
 
-  let queue = scan(doc, adapter)
+  /**
+   * Files last.
+   *
+   * Attaching one makes a site re-render, sometimes a beat later and
+   * sometimes across the whole form, and whatever was filled in the moments
+   * after it can be reset while the DOM keeps showing the text. On Ashby the
+   * resume sits third and Preferred First Name fifth, and that field kept
+   * coming back as unanswered on submit while everything around it passed.
+   *
+   * Nothing else depends on the order, so the cheapest fix is to let the
+   * disruptive write happen when there is nothing left to disrupt.
+   */
+  const filesLast = (fields: FieldSpec[]) => [
+    ...fields.filter((field) => field.kind !== "file"),
+    ...fields.filter((field) => field.kind === "file")
+  ]
+
+  let queue = filesLast(scan(doc, adapter))
   let total = queue.length
 
   /**
@@ -274,7 +291,7 @@ export async function autofill({
 
     if (shouldCancel?.()) break
 
-    queue = scan(doc, adapter).filter((field) => !alreadyDone(field.el as Element))
+    queue = filesLast(scan(doc, adapter).filter((field) => !alreadyDone(field.el as Element)))
     total += queue.length
   }
 

@@ -25,6 +25,12 @@ function readBack(field: FieldSpec): string | null {
   // genuinely gone cannot be confirmed; one that was merely re-rendered can,
   // and reporting the two the same way calls six correct fields failures.
   const el = relocate(field.el)
+
+  // A file field is read before the missing-element check, because the whole
+  // point of the check below is that a control which is gone cannot be
+  // confirmed, and an uploader that took the file DELETES its input.
+  if (field.kind === "file") return readAttachedFile(field, el)
+
   if (!el) return null
 
   switch (field.kind) {
@@ -92,30 +98,6 @@ function readBack(field: FieldSpec): string | null {
     case "checkbox":
       return (el as HTMLInputElement).checked ? "checked" : "unchecked"
 
-    case "file": {
-      const input = el instanceof HTMLInputElement ? el : null
-      const file = input?.files?.[0]
-      if (file) return file.name
-
-      /**
-       * The uploader having taken the file and emptied the input.
-       *
-       * Workday's dropzone reads the file, uploads it, and lists it by name
-       * beside the control; the input it came from is left empty. Reading only
-       * `input.files` then reports a refusal over a resume that is visibly
-       * attached, which is the read-back describing its own blind spot rather
-       * than the page.
-       */
-      const uploader = el.closest(
-        "[data-automation-id='attachments-FileUpload'], [data-field-path], [class*='upload'], [class*='attachment'], [class*='field']"
-      )
-
-      const listed = uploader?.textContent?.trim()
-      const named = listed?.match(/[^\s/\\]+\.(?:pdf|docx?|rtf|txt)\b/i)
-
-      return named ? named[0] : null
-    }
-
     case "combobox":
     case "multiselect": {
       // react-select clears its text input after committing and mirrors the
@@ -124,6 +106,64 @@ function readBack(field: FieldSpec): string | null {
       return readComboboxValue(el as HTMLElement) || null
     }
   }
+}
+
+/** A filename as a site prints it beside an uploader. */
+const FILENAME = /[^\s/\\]+\.(?:pdf|docx?|rtf|txt)\b/i
+
+/** Containers that wrap a file control across the four target sites. */
+const UPLOADER =
+  "[data-automation-id='attachments-FileUpload'], [data-field-path], [class*='upload'], [class*='attachment'], [class*='field']"
+
+/**
+ * What file the page is showing for this field, whatever became of the input.
+ *
+ * Three states, all of them meaning the file is attached:
+ *
+ *  - The input still holds it. Lever, and Greenhouse before it commits.
+ *  - The input is empty and the name is printed beside it. Workday's dropzone
+ *    reads the file, uploads it, and clears the control it came from.
+ *  - The input is GONE. Measured on the live Greenhouse form: attaching a
+ *    resume replaces the whole Attach/Dropbox block with a chip carrying the
+ *    filename, and `getElementById("resume")` returns null a moment later.
+ *
+ * The third is why this runs ahead of the missing-element check in readBack.
+ * That check exists because a control that vanished cannot be confirmed, which
+ * is true of every kind except this one, where vanishing is the confirmation.
+ * Without this the user attaches a resume, sees it named on the page, and gets
+ * a red cross telling them it did not take.
+ */
+function readAttachedFile(field: FieldSpec, el: Element | null): string | null {
+  if (el instanceof HTMLInputElement && el.files?.[0]) return el.files[0].name
+
+  const scope = el?.isConnected ? el.closest(UPLOADER) : uploaderShowing(field)
+  const named = scope?.textContent?.match(FILENAME)
+
+  return named ? named[0] : null
+}
+
+/**
+ * Find this field's uploader again by what it says rather than what it is.
+ *
+ * Scoped to the block naming the question, and required to be showing a file,
+ * so a page with three uploaders cannot answer for the resume with the cover
+ * letter's filename. Narrowest match wins, since the containers nest.
+ */
+function uploaderShowing(field: FieldSpec): Element | null {
+  const doc = field.el.ownerDocument
+  const wanted = canonical(field.label)
+  if (!doc || !wanted) return null
+
+  let best: Element | null = null
+
+  for (const block of Array.from(doc.querySelectorAll(UPLOADER))) {
+    const text = block.textContent ?? ""
+    if (!FILENAME.test(text)) continue
+    if (!canonical(text).includes(wanted)) continue
+    if (!best || best.contains(block)) best = block
+  }
+
+  return best
 }
 
 /**

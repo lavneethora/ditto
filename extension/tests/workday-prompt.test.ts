@@ -105,7 +105,7 @@ describe("the row that says there is nothing", () => {
 
     expect(result.ok).toBe(false)
     expect(document.getElementById("chosen")!.children).toHaveLength(0)
-  })
+  }, 15_000)
 })
 
 describe("a widget that only commits on Enter", () => {

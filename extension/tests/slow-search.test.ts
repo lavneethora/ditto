@@ -92,3 +92,63 @@ describe("a box that takes its time", () => {
     expect(pills.match(/Python/g)?.length ?? 0).toBe(1)
   }, 30_000)
 })
+
+describe("a search that takes a full two seconds", () => {
+  /**
+   * Reported live, twice: "it is not waiting, it is too fast", and "if the
+   * list is not populating it erases and writes again, which takes more time
+   * for the list to populate".
+   *
+   * The second half is the worse one. Retrying is not passive: it clears the
+   * box and types again, throwing away a search that was moments from
+   * answering and starting the wait over.
+   */
+  it("waits rather than retyping the query", async () => {
+    let queries = 0
+
+    document.body.innerHTML = `
+      <div id="shell" data-uxi-widget-type="multiselect">
+        <div id="pills"></div>
+        <input id="skills" role="combobox" aria-controls="menu" />
+        <ul id="menu" role="listbox"></ul>
+      </div>`
+
+    const input = document.getElementById("skills") as HTMLInputElement
+    const menu = document.getElementById("menu")!
+    const pills = document.getElementById("pills")!
+    let timer: ReturnType<typeof setTimeout> | undefined
+
+    input.addEventListener("input", () => {
+      // Typing is per character, and each character is an input event. What
+      // counts is a typing PASS: the box being cleared and written again.
+      if (!input.value) {
+        queries++
+        return
+      }
+
+      clearTimeout(timer)
+
+      const asked = input.value.toLowerCase()
+      timer = setTimeout(() => {
+        if (asked !== "kubernetes") return
+        menu.innerHTML = `<li role="option" data-value="Kubernetes (Software)">Kubernetes (Software)</li>`
+        menu.querySelector("li")!.addEventListener("click", () => {
+          pills.insertAdjacentHTML(
+            "beforeend",
+            `<div data-automation-id="promptOption" data-automation-label="Kubernetes (Software)">Kubernetes (Software)</div>`
+          )
+          menu.innerHTML = ""
+          input.value = ""
+        })
+      }, 2000)
+    })
+
+    await selectFromCombobox(input, "Kubernetes")
+
+    expect(pills.textContent).toContain("Kubernetes (Software)")
+
+    // Typed once. A retry here would have cleared the box and restarted the
+    // two second wait with less budget than the first attempt had.
+    expect(queries).toBe(1)
+  }, 30_000)
+})

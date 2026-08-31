@@ -357,7 +357,7 @@ export function verify(
           }
         }
 
-        return { ...base, status: "filled", value: actual }
+        return { ...base, status: "filled", value: actual, reason: attempt.note }
       }
 
       if (!matches(attempt.value, actual)) {
@@ -368,7 +368,7 @@ export function verify(
         }
       }
 
-      return { ...base, status: "filled", value: actual }
+      return { ...base, status: "filled", value: actual, reason: attempt.note }
     }
   }
 }

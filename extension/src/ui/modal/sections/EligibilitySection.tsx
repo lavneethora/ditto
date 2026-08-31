@@ -1,4 +1,4 @@
-import { Segmented, Select, TextInput, YES_NO } from "~ui/components"
+import { Chips, Segmented, Select, TextArea, TextInput, YES_NO } from "~ui/components"
 import type { SectionProps } from "../shared"
 
 const WORK_STATUS = [
@@ -71,6 +71,35 @@ export function EligibilitySection({ profile, update }: SectionProps) {
             value={eligibility.residentCountry}
             onChange={(v) => set({ residentCountry: v })}
             placeholder="Canada"
+          />
+        )}
+      </div>
+
+      <div className="ditto-card">
+        <Chips
+          label="Countries you hold citizenship in"
+          values={eligibility.citizenships}
+          onChange={(v) => set({ citizenships: v })}
+          placeholder="India, then Enter"
+          hint="Not the same as where you live or hold residency. This is what answers the screening question that lists countries, such as 'are you a citizen of Cuba, Iran, North Korea or Syria'. Add every passport you hold: Ditto answers no only when none of the countries named in the question is on this list."
+        />
+      </div>
+
+      <div className="ditto-card">
+        <Segmented
+          label="Are you bound by a non-compete, non-solicit or similar agreement?"
+          value={eligibility.boundByAgreements}
+          options={YES_NO}
+          onChange={(v) => set({ boundByAgreements: v })}
+        />
+
+        {eligibility.boundByAgreements === true && (
+          <TextArea
+            label="Which agreement, and when does it expire?"
+            value={eligibility.agreementDetails}
+            onChange={(v) => set({ agreementDetails: v })}
+            placeholder="Non-solicitation agreement with Acme Corp, expires March 2027."
+            hint="Forms usually ask this as one question: yes or no, and if yes, the type and the expiry. This is what Ditto writes into the box."
           />
         )}
       </div>

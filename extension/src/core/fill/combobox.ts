@@ -1212,9 +1212,31 @@ export function readComboboxValue(input: HTMLElement): string {
     return chosen.join(", ")
   }
 
-  const shell = input.closest(".select__control, [class*='__control']")
-  const single = shell?.querySelector("[class*='singleValue'], [class*='single-value']")
-  if (single) return (single as HTMLElement).innerText.trim()
+  /**
+   * The chosen value react-select paints beside its search box.
+   *
+   * Looked for in the field itself, not only under a `__control` ancestor.
+   * That class only exists when a site sets `classNamePrefix`, and Greenhouse
+   * does not: its markup is emotion hashes, so the lookup never fired, the
+   * read-back fell through to the search input, and the search input is empty
+   * after a selection. Resume, Country and Veteran Status all came back as
+   * refused over fields that were filled.
+   *
+   * The placeholder is excluded by name, or an empty control would report the
+   * grey prompt text as its value.
+   */
+  const field =
+    input.closest("[data-field-path], [data-automation-id^='formField-'], [class*='field']") ??
+    input.parentElement
+
+  const single = Array.from(
+    field?.querySelectorAll("[class*='singleValue'], [class*='single-value']") ?? []
+  ).find((el) => !/placeholder/i.test(el.className))
+
+  if (single) {
+    const text = ((single as HTMLElement).innerText ?? single.textContent ?? "").trim()
+    if (text) return text
+  }
 
   if (input instanceof HTMLInputElement && input.value) return input.value
 

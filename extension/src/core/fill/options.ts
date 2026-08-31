@@ -167,10 +167,22 @@ export function pickText(options: FieldOption[], value: string): FieldOption | n
   const direct = pickExactish(options, value)
   if (direct) return direct
 
-  // Retry with the state spelled the other way round.
-  for (const alias of withSubdivisionAliases(value)) {
-    const hit = pickExactish(options, alias)
-    if (hit) return hit
+  /**
+   * Retry with the state spelled the other way round, for values that are
+   * actually places.
+   *
+   * A comma is what makes a place: "Lubbock, Texas". Without that test the
+   * rewrite fires on any value containing a state name, and "Texas Tech
+   * University" became "TX Tech University" — where the two letter token is
+   * then dropped as too short, leaving "tech university", which matched
+   * ARKANSAS Tech University. A school nobody attended, from a rule about
+   * postal abbreviations.
+   */
+  if (value.includes(",")) {
+    for (const alias of withSubdivisionAliases(value)) {
+      const hit = pickExactish(options, alias)
+      if (hit) return hit
+    }
   }
 
   // And with the shorter ways a degree gets listed.
@@ -301,6 +313,16 @@ function pickExactish(options: FieldOption[], value: string): FieldOption | null
       const words = text.split(" ").filter((w) => w.length > 2 || /\d/.test(w))
       const found = new Set(words)
       const hits = wantedWords.filter((w) => found.has(w)).length
+
+      /**
+       * The first word has to be there.
+       *
+       * It is the one carrying the identity, and without it two names that
+       * share everything else score well enough to pass: "Arkansas Tech
+       * University" answered "Texas Tech University" on two words out of
+       * three, and a school nobody attended went onto an application.
+       */
+      if (!found.has(wantedWords[0])) continue
 
       const covered = hits / wantedWords.length
       /**

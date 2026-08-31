@@ -26,6 +26,18 @@ const taught = (label: string, key: ProfileKey) => [{ label: canonical(label), k
 const keyFor = (label: string, learned: { label: string; key: string }[] = []) =>
   match(field(label), [], undefined, learned)?.key ?? null
 
+describe("the question is kept as the form asked it", () => {
+  it("matches on the canonical form while storing the original", () => {
+    // Stored for display, canonicalised only when compared. The list showed
+    // "what is your handle on github" for a question that was asked as
+    // "What is your handle on GitHub?".
+    const learned = [{ label: "What is your handle on GitHub?", key: "personal.github" }]
+
+    expect(keyFor("What is your handle on GitHub?", learned)).toBe("personal.github")
+    expect(keyFor("what is your handle on github", learned)).toBe("personal.github")
+  })
+})
+
 describe("a question the user has explained", () => {
   it("is answered from the field they chose", () => {
     const learned = taught("What is your handle on GitHub", "personal.github")
@@ -95,6 +107,24 @@ describe("the picker names fields the way a person would", () => {
     expect(keyLabel("personal.firstName")).toBe("Personal · First Name")
     expect(keyLabel("eeo.veteran")).toBe("Equal Employment · Veteran")
     expect(keyLabel("eligibility.residentCountry")).toBe("Eligibility · Resident Country")
+  })
+
+  it("does not mangle acronyms into words", () => {
+    // "Linkedin" and "Authorized Us" in a picker read as a bug.
+    expect(keyLabel("personal.linkedin")).toBe("Personal · LinkedIn")
+    expect(keyLabel("personal.github")).toBe("Personal · GitHub")
+    expect(keyLabel("eeo.authorizedUS")).toBe("Equal Employment · Authorized US")
+    expect(keyLabel("education[].gpa")).toBe("Education (each entry) · GPA")
+  })
+
+  it("splits a number off the word before it", () => {
+    expect(keyLabel("personal.addressLine1")).toBe("Personal · Address Line 1")
+    expect(keyLabel("eligibility.atLeast18")).toBe("Eligibility · At Least 18")
+  })
+
+  it("leaves joining words lowercase", () => {
+    expect(keyLabel("eligibility.boundByAgreements")).toBe("Eligibility · Bound by Agreements")
+    expect(keyLabel("preferences.willingToRelocate")).toBe("Preferences · Willing to Relocate")
   })
 
   it("says when a field belongs to a repeated block", () => {

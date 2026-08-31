@@ -167,6 +167,38 @@ export const PROFILE_KEYS = [
 export type ProfileKey = (typeof PROFILE_KEYS)[number]
 
 /**
+ * A profile key as a person would read it: "Work · Job Title".
+ *
+ * Derived from the key rather than kept as a table, so a key added later
+ * cannot quietly show up in the picker as a raw identifier. The section names
+ * are the only part worth spelling out by hand.
+ */
+const SECTION_NAMES: Record<string, string> = {
+  personal: "Personal",
+  education: "Education",
+  work: "Work",
+  eeo: "Equal Employment",
+  eligibility: "Eligibility",
+  preferences: "Preferences",
+  forms: "This Form"
+}
+
+export function keyLabel(key: string): string {
+  const [head, tail] = key.split(".")
+  if (!tail) return head.replace(/^./, (c) => c.toUpperCase())
+
+  const section = SECTION_NAMES[head.replace("[]", "")] ?? head
+  const repeated = head.endsWith("[]")
+
+  const field = tail
+    .replace(/([a-z0-9])([A-Z])/g, "$1 $2")
+    .replace(/^./, (c) => c.toUpperCase())
+    .replace(/\bUs\b/g, "US")
+
+  return `${section}${repeated ? " (each entry)" : ""} · ${field}`
+}
+
+/**
  * A matcher rule.
  *
  * `invert` is required, not optional, on any rule targeting a boolean key.

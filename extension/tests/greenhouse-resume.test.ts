@@ -1,89 +1,109 @@
 import { beforeEach, describe, expect, it } from "vitest"
 
+import { scan } from "~core/scan"
 import type { FieldSpec } from "~core/types"
 import { verify } from "~core/verify"
 
 /**
  * The resume that reported itself missing.
  *
- * Markup taken off the live Stripe form on job-boards.greenhouse.io, in both
- * states. Attaching a file there does not fill the input, it REPLACES the
- * whole Attach/Dropbox block with a chip naming the file, so the input Ditto
- * attached to no longer exists a moment later. Read-back gave up at that
- * point and put a red cross on a resume the user could see was uploaded.
+ * Markup copied verbatim off the live Stripe form on job-boards.greenhouse.io,
+ * including the part that made the last attempt at this fail: the ONLY label
+ * pointing at the resume input reads "Attach", not "Resume/CV". A read-back
+ * that goes looking for the field by its label is hunting for a word that
+ * disappears along with the button.
+ *
+ * Attaching does not fill the input. It removes it, and paints a chip naming
+ * the file where the buttons were.
  */
 
-const EMPTY = `
+const FORM = `
 <form id="application-form">
-  <div class="file-upload">
-    <label class="label" for="resume">Resume/CV<span>*</span></label>
+  <div role="group" aria-labelledby="upload-label-resume" aria-required="true" class="file-upload">
+    <div id="upload-label-resume" class="label upload-label">Resume/CV<span class="required">*</span></div>
     <div class="file-upload__wrapper">
       <div class="button-container">
-        <button type="button">Attach</button>
-        <input id="resume" type="file" accept=".pdf,.doc,.docx,.txt,.rtf" required />
+        <div class="secondary-button"><div>
+          <button type="button" class="btn">Attach</button>
+          <label class="visually-hidden" for="resume">Attach</label>
+          <input id="resume" class="visually-hidden" type="file" accept=".pdf,.doc,.docx,.txt,.rtf">
+        </div></div>
+        <p class="file-upload__filetypes">Accepted file types: pdf, doc, docx, txt, rtf</p>
       </div>
     </div>
   </div>
-  <div class="file-upload">
-    <label class="label" for="cover_letter">Cover Letter</label>
+  <div role="group" aria-labelledby="upload-label-cover_letter" class="file-upload">
+    <div id="upload-label-cover_letter" class="label upload-label">Cover Letter</div>
     <div class="file-upload__wrapper">
       <div class="button-container">
-        <button type="button">Attach</button>
-        <input id="cover_letter" type="file" accept=".pdf,.doc,.docx" />
+        <div class="secondary-button"><div>
+          <button type="button" class="btn">Attach</button>
+          <label class="visually-hidden" for="cover_letter">Attach</label>
+          <input id="cover_letter" class="visually-hidden" type="file" accept=".pdf,.doc,.docx">
+        </div></div>
       </div>
     </div>
   </div>
 </form>`
 
-/** What the page becomes once the file is taken. Note: no input. */
-const COMMITTED_CHIP = `
-      <div class="file-upload__filename">
-        <p class="body body__secondary">Lavneet_Hora_Resume.pdf</p>
-        <button type="button" aria-label="Remove file"></button>
-      </div>`
-
-function fieldFor(id: string, label: string): FieldSpec {
-  const el = document.getElementById(id)
-  if (!el) throw new Error(`no element for ${id}`)
-
-  return { id, el, kind: "file", label, required: true } as FieldSpec
-}
+/** Exactly what the site swaps the button block for. */
+const CHIP = `
+  <div class="file-upload__filename">
+    <p class="body body__secondary">Lavneet_Hora_Resume.pdf</p>
+    <button type="button" aria-label="Remove file"></button>
+  </div>`
 
 const attempt = { kind: "wrote", value: "Lavneet_Hora_Resume.pdf" } as const
 
+function fileFields(): { resume: FieldSpec; cover: FieldSpec } {
+  const files = scan(document).filter((f) => f.kind === "file")
+  const resume = files.find((f) => f.el.id === "resume")
+  const cover = files.find((f) => f.el.id === "cover_letter")
+  if (!resume || !cover) throw new Error(`scan found ${files.length} file fields`)
+  return { resume, cover }
+}
+
+/** Attach a file the way the page does: input removed, chip in its place. */
+function commitFile(index: number): void {
+  document.querySelectorAll(".file-upload__wrapper")[index]!.innerHTML = CHIP
+}
+
 describe("a resume Greenhouse has taken", () => {
   beforeEach(() => {
-    document.body.innerHTML = EMPTY
+    document.body.innerHTML = FORM
   })
 
-  it("is confirmed from the chip after the input is removed", () => {
-    const field = fieldFor("resume", "Resume/CV")
+  it("is confirmed from the chip once the input is gone", () => {
+    const { resume } = fileFields()
 
-    // Exactly what the site does on attach.
-    const wrapper = document.querySelector(".file-upload__wrapper")!
-    wrapper.innerHTML = COMMITTED_CHIP
+    commitFile(0)
     expect(document.getElementById("resume")).toBeNull()
 
-    const result = verify(field, attempt)
+    expect(verify(resume, attempt).status).toBe("filled")
+  })
 
-    expect(result.status).toBe("filled")
+  it("survives the label that says Attach rather than Resume/CV", () => {
+    const { resume } = fileFields()
+
+    // The trap the previous fix fell into. Whatever the label resolves to, it
+    // must not be what gets us back to the block.
+    commitFile(0)
+
+    expect(verify(resume, attempt).status).toBe("filled")
   })
 
   it("does not answer for one uploader with another's file", () => {
-    const resume = fieldFor("resume", "Resume/CV")
-    const cover = fieldFor("cover_letter", "Cover Letter")
+    const { resume, cover } = fileFields()
 
-    // Only the cover letter gets a file.
-    document.querySelectorAll(".file-upload__wrapper")[1]!.innerHTML = COMMITTED_CHIP
-    document.getElementById("cover_letter")?.remove()
+    commitFile(1)
 
     expect(verify(cover, attempt).status).toBe("filled")
     expect(verify(resume, attempt).status).not.toBe("filled")
   })
 
   it("still reports a genuinely empty uploader as unfilled", () => {
-    const field = fieldFor("resume", "Resume/CV")
+    const { resume } = fileFields()
 
-    expect(verify(field, attempt).status).not.toBe("filled")
+    expect(verify(resume, attempt).status).not.toBe("filled")
   })
 })

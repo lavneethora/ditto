@@ -225,6 +225,21 @@ async function waitForGrowth(doc: Document, before: number): Promise<boolean> {
  * things first.
  */
 /**
+ * Which layer answered, for the two worth telling the user about.
+ *
+ * A rule match is the normal case and says nothing, or every row would carry
+ * a label. The other two are worth knowing: one is something they taught, and
+ * the other is a guess about meaning they may want to check.
+ */
+function sourceOf(matched: MatchResult | null | undefined): string | undefined {
+  if (!matched) return undefined
+  if (matched.rule === "learned") return "you taught this"
+  if (matched.rule.startsWith("similar to")) return matched.rule
+
+  return undefined
+}
+
+/**
  * A semantic hit, in the shape the rest of the engine expects.
  *
  * Goes through applySection like every rule does, so a "start date" recognised
@@ -433,7 +448,7 @@ export async function autofill({
        */
       if (field.kind === "file" && attempt.kind === "wrote") await settleFile(field, attempt.value)
 
-      const result = verify(field, attempt, matched?.key)
+      const result = verify(field, attempt, matched?.key, sourceOf(matched))
 
       // Kept so the value can be reasserted once the form has settled.
       if (attempt.kind === "wrote") {

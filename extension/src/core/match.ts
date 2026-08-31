@@ -638,10 +638,60 @@ const ALL_RULES: MatchRule[] = [
  * ones, competing on weight rather than jumping the queue, so an adapter
  * cannot accidentally shadow a high-confidence shared rule with a vague one.
  */
+/**
+ * A question the user has told Ditto the meaning of.
+ *
+ * Kept as a plain shape rather than importing the profile schema, so the
+ * matcher stays free of storage concerns.
+ */
+export interface LearnedMapping {
+  label: string
+  key: string
+}
+
+/**
+ * Find a taught mapping for this label.
+ *
+ * Compared through the same spellings the rules get, so teaching "Alma Mater"
+ * also covers "Alma Maters" and "alma mater?" without the user teaching each
+ * one. Longest label first, so a specific question beats a general one that
+ * happens to be contained in it.
+ */
+function taughtKey(label: string, learned: readonly LearnedMapping[]): string | null {
+  if (learned.length === 0) return null
+
+  const spellings = new Set([
+    label,
+    singularize(label),
+    normalizeWording(label),
+    normalizeWording(singularize(label))
+  ])
+
+  const byLength = [...learned].sort((a, b) => b.label.length - a.label.length)
+
+  for (const entry of byLength) {
+    if (!entry.label || !entry.key) continue
+
+    const taught = new Set([
+      entry.label,
+      singularize(entry.label),
+      normalizeWording(entry.label),
+      normalizeWording(singularize(entry.label))
+    ])
+
+    for (const spelling of spellings) {
+      if (taught.has(spelling)) return entry.key
+    }
+  }
+
+  return null
+}
+
 export function match(
   field: FieldSpec,
   extraRules: readonly MatchRule[] = [],
-  adapterKey?: (el: Element) => ProfileKey | null
+  adapterKey?: (el: Element) => ProfileKey | null,
+  learned: readonly LearnedMapping[] = []
 ): MatchResult | null {
   const label = canonical(field.label)
   const section = sectionKind(field.section)
@@ -650,6 +700,23 @@ export function match(
   // thinks otherwise has misread it. Refused here as well as in the engine,
   // so a consent question is never even counted as one Ditto recognises.
   if (isConsentQuestion(field.label)) return null
+
+  /**
+   * What the user said this question means, ahead of everything else.
+   *
+   * Above the site's own identifier and above every rule, because it is the
+   * only source here that is not an inference. A pattern I wrote is a guess
+   * about what forms tend to call things; this is the person whose
+   * application it is, saying what this one asks.
+   *
+   * It is also why a taught mapping is allowed to answer the eligibility and
+   * equal-employment keys, where a guess never would be. The danger there was
+   * never the key, it was answering without being told.
+   */
+  const taught = taughtKey(label, learned)
+  if (taught) {
+    return { key: applySection(taught as ProfileKey, section), invert: false, rule: "learned" }
+  }
 
   // A site's own semantic identifier beats everything, including autocomplete:
   // it is exact rather than inferred.

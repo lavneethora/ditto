@@ -505,6 +505,29 @@ export function holdsValue(existing: string, wanted: string): boolean {
   return alreadyHolds(existing, wanted)
 }
 
+/**
+ * The entry in a control's read-back that answers this value, as the site
+ * spells it.
+ *
+ * A taxonomy renames what it is given: "Python" goes in and "Python
+ * (Programming Language)" comes out. Reporting the value asked for rather
+ * than the one accepted made the panel compare its own wording against the
+ * page's and call every skills box a mismatch, over a field holding exactly
+ * what it should.
+ */
+export function heldAs(existing: string, wanted: string): string | null {
+  const want = canonical(wanted)
+
+  for (const part of existing.split(",")) {
+    const trimmed = part.trim()
+    if (!trimmed) continue
+
+    if (canonical(trimmed) === want || alreadyHolds(trimmed, wanted)) return trimmed
+  }
+
+  return null
+}
+
 export interface ComboboxResult {
   ok: boolean
   /** The option label that was committed, when it worked. */

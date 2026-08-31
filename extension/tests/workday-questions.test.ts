@@ -112,11 +112,16 @@ describe("questions Ditto has no business answering", () => {
 
 describe("employer-specific questions", () => {
   it("leaves the ones no profile can answer", () => {
-    // Relatives at the company, commitments elsewhere, non-competes. These
-    // are real questions with real answers, and none of them is a fact Ditto
-    // holds.
+    // Relatives at the company, commitments elsewhere. Real questions with
+    // real answers, and neither is a fact Ditto holds.
     expect(keyFor("relatives working")).toBeNull()
     expect(keyFor("commitments to another organization")).toBeNull()
-    expect(keyFor("bound by any agreements")).toBeNull()
+  })
+
+  it("now answers the non-compete question, which the profile records", () => {
+    // This used to sit with the two above. The profile gained a field for it,
+    // so the question moved from "nobody can answer this" to "answered from
+    // something the user stored".
+    expect(keyFor("bound by any agreements")).toBe("eligibility.boundByAgreements")
   })
 })

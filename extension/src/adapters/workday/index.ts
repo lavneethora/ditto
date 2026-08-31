@@ -109,27 +109,59 @@ function countPanels(section: Element): number {
 /**
  * Workday's own name for a skill, where it is not the obvious one.
  *
- * Every entry here was confirmed against a live Workday list, most of them
- * after Ditto picked the wrong neighbour: C design over C, C++ STL over C++,
- * Docker Swarm over Docker, Documentum Java over Java, FASTA over FastAPI.
+ * Every entry was read off a live Workday skills search, one term at a time,
+ * rather than guessed. That mattered: a guessed name is worse than no entry,
+ * because Ditto would type something the taxonomy does not have and a skill
+ * that the scoring finds today would land in NEEDS YOU instead.
  *
- * Naming them is not a workaround for the matcher, which still has to handle
- * every skill not on this list. It is insurance on the ones already paid for:
- * typing the exact entry makes it the unambiguous top hit, so no later change
- * to the scoring can quietly take these back.
+ * What the enumeration showed is how often the plain name is not the top
+ * result. "Go" returns Go-Carts. "PHP" returns phpBB. "R" returns SAP R.
+ * "AWS" returns AWS VPN. Each of those is a skill Ditto would have had to
+ * out-rank by scoring, and scoring is what has repeatedly broken a
+ * neighbouring skill while fixing one.
+ *
+ * Skills NOT listed here are the normal case and go through the matcher
+ * unchanged: PyTorch, OpenCV, Kubernetes, Linux, TypeScript, Selenium, Git,
+ * Qiskit and the rest are already their own top result.
  */
 const SKILL_LABELS: Record<string, string> = {
+  // Languages. Every one of these has a near neighbour that a plain search
+  // ranks above it: "Go" returns Go-Carts, "PHP" returns phpBB, "R" returns
+  // SAP R, and "C" returns C NMR.
   c: "C (Programming Language)",
   "c++": "C++ Programming Language",
+  "c#": "C Sharp (Programming Language)",
+  "c sharp": "C Sharp (Programming Language)",
   java: "Java (Programming Language)",
   python: "Python (Programming Language)",
-  sql: "Structured Query Language (SQL)",
+  go: "Go Programming Language",
+  golang: "Go Programming Language",
+  php: "PHP (Programming Language)",
+  ruby: "Ruby (Programming Language)",
+  kotlin: "Kotlin Programming Language",
   r: "R Programming",
+  sql: "Structured Query Language (SQL)",
+  html: "Hyper Text Markup Language (HTML)",
+
+  // Libraries and frameworks.
   react: "React.js",
   "react js": "React.js",
-  docker: "Docker (Software)",
+  vue: "Vuejs",
+  express: "Express.js",
+  flask: "Flask (Web Framework)",
   pandas: "Pandas (Software)",
   numpy: "Python Numpy",
+  matplotlib: "Python Matplotlib",
+
+  // Tools and platforms.
+  docker: "Docker (Software)",
+  aws: "Amazon Web Services (AWS)",
+  azure: "Microsoft Azure",
+  jupyter: "Jupyter Notebook",
+  excel: "Microsoft Excel",
+  tableau: "Tableau (Software)",
+  "power bi": "Microsoft Power Business Intelligence (PBI)",
+  jira: "Atlassian JIRA",
   matlab: "MATLAB"
 }
 

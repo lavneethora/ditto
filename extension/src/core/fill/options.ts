@@ -274,6 +274,20 @@ function score(text: string, wanted: string, raw: string, rawWanted: string): nu
    */
   if (wanted.startsWith(text + " ")) return 250
 
+  /**
+   * A dialling code, which names a country by carrying its number.
+   *
+   * "+1" is one short token and the option around it is three words, so the
+   * ordinary overlap test rejects it for not accounting for enough of the
+   * option. That is the right rule for names and the wrong one for codes:
+   * "United States +1" IS the +1 entry, and Greenhouse's phone field went
+   * unanswered because of it.
+   *
+   * Narrow on purpose. Only a value shaped like a dialling code qualifies, so
+   * a one word name still has to earn its match the ordinary way.
+   */
+  if (/^\+\d{1,4}$/.test(wanted) && text.split(" ").includes(wanted)) return 600
+
   return 0
 }
 

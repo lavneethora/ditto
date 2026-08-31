@@ -177,7 +177,41 @@ function findOpenMenu(
     if (byId) return byId
   }
 
-  const all = Array.from(doc.querySelectorAll(MENU_SELECTORS))
+  // The widget's own listbox, named after the control. react-select builds
+  // "react-select-<id>-listbox" whether or not it wires up aria-controls.
+  if (control.id) {
+    const named = Array.from(doc.querySelectorAll(MENU_SELECTORS)).find((menu) =>
+      menu.id.includes(control.id)
+    )
+
+    if (named) return named
+  }
+
+  /**
+   * Never a menu that plainly belongs to a different field.
+   *
+   * Menus are left mounted with their options in them, so a scan of the page
+   * finds several at once and the fallback below would take whichever had
+   * something in it. Reported live: the Veteran Status question was answered
+   * "Norfolk Island+672", read out of the phone number's country list.
+   *
+   * A menu inside some other field's container is that field's. One with no
+   * container of its own is portalled, which is how most of them render, and
+   * stays eligible.
+   */
+  const container = control.closest(
+    "[data-field-path], [data-automation-id^='formField-'], fieldset, [class*='field']"
+  )
+
+  const eligible = (menu: Element) => {
+    const owner = menu.closest(
+      "[data-field-path], [data-automation-id^='formField-'], fieldset, [class*='field']"
+    )
+
+    return !owner || owner === container
+  }
+
+  const all = Array.from(doc.querySelectorAll(MENU_SELECTORS)).filter(eligible)
   const fresh = all.filter((menu) => !stale.has(menu))
 
   // A menu with options in it beats an empty one, and a fresh menu beats both.

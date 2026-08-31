@@ -205,3 +205,33 @@ describe("confirming what was written", () => {
     expect(verify(field as FieldSpec, { kind: "wrote", value: "2024-06" }).status).toBe("error")
   })
 })
+
+describe("a date the widget respells", () => {
+  it("confirms a June the field writes back as 2026-6", async () => {
+    // Workday drops the leading zero, and every date on the page was reported
+    // as refused over a one character difference in spelling.
+    const field = byLabel("From")
+    await fill(field as FieldSpec, { kind: "text", value: "2026-06" })
+
+    const month = document.querySelector<HTMLInputElement>(
+      "[data-automation-id='dateSectionMonth-input']"
+    )!
+    month.value = "6"
+
+    expect(verify(field as FieldSpec, { kind: "wrote", value: "2026-06" }).status).toBe("filled")
+  })
+
+  it("still refuses a different month", () => {
+    const field = byLabel("From")
+    const month = document.querySelector<HTMLInputElement>(
+      "[data-automation-id='dateSectionMonth-input']"
+    )!
+    const year = document.querySelector<HTMLInputElement>(
+      "[data-automation-id='dateSectionYear-input']"
+    )!
+    month.value = "9"
+    year.value = "2026"
+
+    expect(verify(field as FieldSpec, { kind: "wrote", value: "2026-06" }).status).toBe("error")
+  })
+})

@@ -990,6 +990,25 @@ async function commit(
 }
 
 /**
+ * Put away whatever menu this control has left open.
+ *
+ * Every exit from a fill is not a successful commit: a value can be found
+ * already present, or refused, or land through the typed-text path, and none
+ * of those go through the commit that closes up after itself. On a skills box
+ * that is once per value, and the last one leaves its results sitting over the
+ * rest of the form.
+ */
+export function dismissMenu(input: HTMLElement): void {
+  const doc = input.ownerDocument
+  const target = (relocate(input) ?? input) as HTMLElement
+
+  if (!findOpenMenu(doc, target)) return
+
+  pressKey(target, "Escape", 27)
+  target.blur?.()
+}
+
+/**
  * Put the menu away once the value is in.
  *
  * Workday leaves a committed dropdown open, which looks broken to the user and

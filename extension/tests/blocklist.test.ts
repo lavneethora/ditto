@@ -79,11 +79,13 @@ describe("credential fields", () => {
 })
 
 describe("the fill layer refuses to act on forbidden controls", () => {
-  it("throws rather than typing into a password field", () => {
+  it("throws rather than typing into a password field", async () => {
     const input = el(`<input type="password" name="password" />`) as HTMLInputElement
     document.body.append(input)
 
-    expect(() => typeInto(input, "hunter2")).toThrow(/refused/i)
+    // Typed out character by character now, so the refusal arrives as a
+    // rejection. Still before a single keystroke reaches the field.
+    await expect(typeInto(input, "hunter2")).rejects.toThrow(/refused/i)
     expect(input.value).toBe("")
   })
 

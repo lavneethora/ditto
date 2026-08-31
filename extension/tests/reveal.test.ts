@@ -305,3 +305,67 @@ describe("saying the answers again", () => {
     expect(presses).toBe(0)
   })
 })
+
+describe("a radio that was already answered", () => {
+  const form = () => {
+    document.body.replaceChildren()
+    document.body.insertAdjacentHTML(
+      "afterbegin",
+      `<div data-automation-id="applyFlowPage">
+         <div data-automation-id="formField-candidateIsPreviousWorker">
+           <fieldset>
+             <legend><label id="q">Are you open to relocation?</label></legend>
+             <div name="relocate" aria-labelledby="q">
+               <input id="y" name="relocate" type="radio" value="true"><label for="y">Yes</label>
+               <input id="n" name="relocate" type="radio" value="false"><label for="n">No</label>
+             </div>
+           </fieldset>
+         </div>
+       </div>`
+    )
+  }
+
+  const run = async () => {
+    const base = emptyProfile()
+    await autofill({
+      doc: document,
+      adapter: workday,
+      profile: {
+        ...base,
+        preferences: { ...base.preferences, willingToRelocate: true }
+      } as never
+    })
+  }
+
+  it("is never clicked a second time", async () => {
+    // These are React controls with their own handlers, and a second press
+    // clears the selection rather than leaving it alone.
+    form()
+
+    let clicks = 0
+    for (const id of ["y", "n"]) {
+      document.getElementById(id)!.addEventListener("click", () => {
+        clicks += 1
+      })
+    }
+
+    await run()
+
+    expect(clicks).toBe(1)
+    expect((document.getElementById("y") as HTMLInputElement).checked).toBe(true)
+  })
+
+  it("is announced again so a listener hears it twice", async () => {
+    form()
+
+    let changes = 0
+    document.getElementById("y")!.addEventListener("change", () => {
+      changes += 1
+    })
+
+    await run()
+
+    expect(changes).toBe(2)
+    expect((document.getElementById("y") as HTMLInputElement).checked).toBe(true)
+  })
+})

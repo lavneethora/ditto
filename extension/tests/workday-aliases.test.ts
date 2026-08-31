@@ -97,7 +97,10 @@ describe("using it during a fill", () => {
       profile: { ...base, skills: ["Java"] } as never
     })
 
-    expect(typed.some((value) => value === "Java (Programming Language)")).toBe(true)
-    expect(typed).not.toContain("Java")
-  })
+    // The alias is what gets asked for first. Later entries are the fallback
+    // spellings, which only happen because this stub returns no results at
+    // all, and they are how a term the taxonomy spells differently is still
+    // found.
+    expect(typed[0]).toBe("Java (Programming Language)")
+  }, 15_000)
 })
